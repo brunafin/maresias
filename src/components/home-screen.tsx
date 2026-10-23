@@ -92,11 +92,11 @@ export function HomeScreen({ account }: { account: ReactNode }) {
             id="busca"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Nome da música ou do cantor"
+            placeholder="Música ou cantor"
             autoComplete="off"
             autoCorrect="off"
             enterKeyHint="search"
-            className="h-20 rounded-2xl border-[3px] bg-card px-5 text-3xl placeholder:text-[22px] placeholder:text-foreground/70 sm:placeholder:text-3xl md:text-3xl"
+            className="h-20 rounded-2xl border-[3px] bg-card px-5 text-3xl placeholder:text-3xl placeholder:text-foreground/70 md:text-3xl"
           />
           <Button type="submit" size="grande" className={bigButtonClass} disabled={state.status === "loading"}>
             {state.status === "loading" ? "Procurando…" : "Buscar"}
