@@ -4,7 +4,7 @@ import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 type Hit = {
   id: number;
@@ -25,14 +25,25 @@ const songLinkClass =
 export function HomeScreen() {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
+  const requestRef = useRef(0);
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    if (value.trim() === "") {
+      requestRef.current += 1;
+      setState({ status: "idle" });
+    }
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     const q = query.trim();
     if (q.length < 2) {
+      requestRef.current += 1;
       setState({ status: "empty", query: q });
       return;
     }
+    const request = ++requestRef.current;
     setState({ status: "loading" });
     try {
       const response = await fetch(`/api/busca?q=${encodeURIComponent(q)}`);
@@ -40,6 +51,7 @@ export function HomeScreen() {
         ok?: boolean;
         results?: Hit[];
       };
+      if (request !== requestRef.current) return;
       if (!response.ok || !body.ok) {
         setState({ status: "error" });
         return;
@@ -47,13 +59,9 @@ export function HomeScreen() {
       const results = body.results ?? [];
       setState(results.length ? { status: "results", results, query: q } : { status: "empty", query: q });
     } catch {
+      if (request !== requestRef.current) return;
       setState({ status: "error" });
     }
-  }
-
-  function clearSearch() {
-    setQuery("");
-    setState({ status: "idle" });
   }
 
   const resultCount =
@@ -82,29 +90,16 @@ export function HomeScreen() {
           <Input
             id="busca"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
             placeholder="Nome da música ou do cantor"
             autoComplete="off"
             autoCorrect="off"
             enterKeyHint="search"
             className="h-20 rounded-2xl border-[3px] bg-card px-5 text-3xl placeholder:text-foreground/70 md:text-3xl"
           />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Button type="submit" size="grande" className={bigButtonClass} disabled={state.status === "loading"}>
-              {state.status === "loading" ? "Procurando…" : "Buscar"}
-            </Button>
-            {query || state.status !== "idle" ? (
-              <Button
-                type="button"
-                size="grande"
-                variant="outline"
-                className={bigButtonClass}
-                onClick={clearSearch}
-              >
-                Apagar
-              </Button>
-            ) : null}
-          </div>
+          <Button type="submit" size="grande" className={bigButtonClass} disabled={state.status === "loading"}>
+            {state.status === "loading" ? "Procurando…" : "Buscar"}
+          </Button>
         </form>
 
         <div aria-live="polite" className="text-2xl leading-snug">

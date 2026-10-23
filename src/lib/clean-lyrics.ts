@@ -66,7 +66,10 @@ export function plainFromSynced(synced: string): string {
   const lines: string[] = [];
   for (const raw of synced.split(/\r?\n/)) {
     const withoutTime = raw.replace(/\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]/g, "").trim();
-    if (!withoutTime) continue;
+    if (!withoutTime) {
+      lines.push("");
+      continue;
+    }
     if (/^\[[^\]]+\]$/.test(withoutTime)) continue;
     lines.push(withoutTime);
   }

@@ -1,9 +1,10 @@
 "use client";
 
-import { BackLink, bigButtonClass } from "@/components/controls";
+import { BackLink, bigButtonClass, compactButtonClass } from "@/components/controls";
 import { LYRIC_SIZES, usePrefs } from "@/components/preferences";
 import { Button } from "@/components/ui/button";
 import { presentArtist } from "@/lib/text";
+import { FastForward, Pause, Play, Rewind } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
@@ -170,12 +171,12 @@ export function SongScreen({ id }: { id: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 border-b-[3px] border-foreground px-4 py-3 sm:px-8 sm:py-4">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+      <header className="shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
           <BackLink />
-          <div>
-            <h1 className="text-3xl font-bold leading-tight sm:text-5xl">{title}</h1>
-            {artist ? <p className="mt-1 text-xl leading-snug sm:text-2xl">{artist}</p> : null}
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
+            {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
           </div>
         </div>
       </header>
@@ -183,7 +184,7 @@ export function SongScreen({ id }: { id: string }) {
       <div
         ref={scrollerRef}
         data-lyrics
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-8 sm:px-10"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-10"
         onPointerDown={(event) => {
           dragRef.current = { x: event.clientX, y: event.clientY, moved: false };
         }}
@@ -204,10 +205,7 @@ export function SongScreen({ id }: { id: string }) {
             <p className="text-3xl leading-snug">Buscando a letra…</p>
           ) : null}
           {visibleLoad.status === "missing" ? (
-            <div className="flex flex-col gap-6">
-              <p className="text-3xl leading-snug">Não achamos a letra desta música.</p>
-              <BackLink />
-            </div>
+            <p className="text-3xl leading-snug">Não achamos a letra desta música.</p>
           ) : null}
           {visibleLoad.status === "error" ? (
             <div className="flex flex-col gap-6">
@@ -238,66 +236,95 @@ export function SongScreen({ id }: { id: string }) {
         </div>
       </div>
 
-      <footer className="shrink-0 border-t-[3px] border-foreground px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <div aria-live="polite" className="text-xl leading-snug">
+      <footer className="shrink-0 border-t border-foreground/30 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2">
+          <div aria-live="polite" className="sr-only">
             {sizeNote ? <p>{sizeNote}</p> : null}
             {scrollStatus ? <p>{scrollStatus}</p> : null}
           </div>
+          {sizeNote || (!armed && scrollNote) ? (
+            <p className="text-center text-sm leading-snug" aria-hidden="true">
+              {sizeNote || scrollNote}
+            </p>
+          ) : null}
 
-          <div role="group" aria-label="Tamanho da letra" className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              size="grande"
-              variant="outline"
-              className={bigButtonClass}
-              aria-label="Diminuir a letra"
-              onClick={() => changeSize(-1)}
-            >
-              A−
-            </Button>
-            <Button
-              type="button"
-              size="grande"
-              variant="outline"
-              className={bigButtonClass}
-              aria-label="Aumentar a letra"
-              onClick={() => changeSize(1)}
-            >
-              A+
-            </Button>
-          </div>
-
-          <div role="group" aria-label="Rolagem da letra">
-            {armed ? (
-              <div className="grid grid-cols-3 gap-3">
-                <Button type="button" size="grande" className={bigButtonClass} onClick={toggleScroll}>
-                  {playing ? "Pausar" : "Continuar"}
-                </Button>
-                <Button
-                  type="button"
-                  size="grande"
-                  variant="outline"
-                  className={bigButtonClass}
-                  onClick={() => setSpeedIndex((value) => Math.max(0, value - 1))}
-                >
-                  Mais devagar
-                </Button>
-                <Button
-                  type="button"
-                  size="grande"
-                  variant="outline"
-                  className={bigButtonClass}
-                  onClick={() => setSpeedIndex((value) => Math.min(SPEEDS.length - 1, value + 1))}
-                >
-                  Mais rápido
-                </Button>
-              </div>
-            ) : (
-              <Button type="button" size="grande" className={bigButtonClass} onClick={startScroll}>
-                Rolar devagar
+          <div className="flex items-center justify-center gap-6">
+            <div role="group" aria-label="Tamanho da letra" className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Diminuir a letra"
+                onClick={() => changeSize(-1)}
+              >
+                A−
               </Button>
-            )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Aumentar a letra"
+                onClick={() => changeSize(1)}
+              >
+                A+
+              </Button>
+            </div>
+
+            <div role="group" aria-label="Rolagem da letra" className="flex gap-2">
+              {armed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={compactButtonClass}
+                  aria-label={playing ? "Pausar" : "Continuar"}
+                  onClick={toggleScroll}
+                >
+                  {playing ? <Pause className="size-6" aria-hidden="true" /> : <Play className="size-6" aria-hidden="true" />}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={compactButtonClass}
+                  aria-label="Rolar devagar"
+                  onClick={startScroll}
+                >
+                  <Play className="size-6" aria-hidden="true" />
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Mais devagar"
+                onClick={() => {
+                  setArmed(true);
+                  setSpeedIndex((value) => Math.max(0, value - 1));
+                }}
+                disabled={!armed}
+              >
+                <Rewind className="size-6" aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Mais rápido"
+                onClick={() => {
+                  setArmed(true);
+                  setSpeedIndex((value) => Math.min(SPEEDS.length - 1, value + 1));
+                }}
+                disabled={!armed}
+              >
+                <FastForward className="size-6" aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         </div>
       </footer>
