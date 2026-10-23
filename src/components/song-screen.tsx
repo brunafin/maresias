@@ -37,7 +37,7 @@ export function SongScreen({ id }: { id: string }) {
   const [scrollNote, setScrollNote] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [requestId, setRequestId] = useState(id);
-  const [save, setSave] = useState<SaveState>({ signedIn: false, saved: false });
+  const [save, setSave] = useState<SaveState>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
 
@@ -49,7 +49,7 @@ export function SongScreen({ id }: { id: string }) {
     setPlaying(false);
     setScrollNote("");
     setSizeNote("");
-    setSave({ signedIn: false, saved: false });
+    setSave(null);
   }
 
   const invalidId = !/^\d+$/.test(id);
@@ -107,8 +107,11 @@ export function SongScreen({ id }: { id: string }) {
           signedIn?: boolean;
           saved?: boolean;
         };
-        if (cancelled || !response.ok || !body.ok || body.showSave === false) return;
-        setSave({ signedIn: Boolean(body.signedIn), saved: Boolean(body.saved) });
+        if (cancelled || !response.ok || !body.ok || !body.signedIn) {
+          setSave(null);
+          return;
+        }
+        setSave({ signedIn: true, saved: Boolean(body.saved) });
       })
       .catch((error: unknown) => {
         if (cancelled) return;

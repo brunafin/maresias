@@ -1,10 +1,8 @@
 "use client";
 
-import { setFavorite } from "@/app/musica/actions";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
-import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 const heartButtonClass =
   "size-12 shrink-0 rounded-xl bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground";
@@ -36,34 +34,32 @@ export function FavoriteButton({
 }) {
   const [saved, setSaved] = useState(initialSaved);
   const [note, setNote] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
-  if (!signedIn) {
-    return (
-      <Button
-        nativeButton={false}
-        render={<Link href="/entrar" />}
-        variant="ghost"
-        size="icon"
-        aria-label="Entre para guardar esta música"
-        className={heartButtonClass}
-      >
-        <HeartIcon saved={false} />
-      </Button>
-    );
-  }
+  if (!signedIn) return null;
 
-  function toggle() {
+  async function toggle() {
     const next = !saved;
     setNote("");
-    startTransition(async () => {
-      const result = await setFavorite({ songId, title, artist, save: next });
-      if (!result.ok) {
+    setPending(true);
+    try {
+      const response = await fetch("/api/favorito", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ songId, title, artist, save: next }),
+      });
+      const result = (await response.json()) as { ok?: boolean; saved?: boolean };
+      if (!response.ok || !result.ok) {
         setNote(next ? "Não conseguimos guardar agora." : "Não conseguimos tirar agora.");
         return;
       }
-      setSaved(result.saved);
-    });
+      setSaved(Boolean(result.saved));
+    } catch {
+      setNote(next ? "Não conseguimos guardar agora." : "Não conseguimos tirar agora.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
