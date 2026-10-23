@@ -1,6 +1,6 @@
 "use client";
 
-import { BackLink, ContrastControl, bigButtonClass } from "@/components/controls";
+import { BackLink, bigButtonClass } from "@/components/controls";
 import { LYRIC_SIZES, usePrefs } from "@/components/preferences";
 import { Button } from "@/components/ui/button";
 import { presentArtist } from "@/lib/text";
@@ -267,8 +267,6 @@ export function SongScreen({ id }: { id: string }) {
               A+
             </Button>
           </div>
-
-          <ContrastControl compact />
 
           <div role="group" aria-label="Rolagem da letra">
             {armed ? (

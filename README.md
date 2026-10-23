@@ -31,4 +31,4 @@ Essas rotas consultam, nesta ordem:
 
 Usamos a letra corrida. Se a resposta vier com o tempo do karaokê e também com a letra corrida, fica só a corrida. Linhas que são só acorde são tiradas.
 
-O tamanho da letra e o contraste ficam gravados neste aparelho, para não precisar ajustar de novo. Isso não é uma conta.
+O tamanho da letra fica gravado neste aparelho, para não precisar ajustar de novo. Isso não é uma conta. A tela fica clara, em tom quente.

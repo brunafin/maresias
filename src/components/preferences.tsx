@@ -6,15 +6,10 @@ export const LYRIC_SIZES = [28, 32, 40, 48, 56, 64, 72, 80] as const;
 export const DEFAULT_LYRIC_SIZE = 40;
 
 const SIZE_KEY = "letras-da-roda-tamanho";
-const CONTRAST_KEY = "letras-da-roda-contraste";
-
-export type ContrastMode = "padrao" | "preto" | "branco";
 
 type Prefs = {
   size: number;
-  contrast: ContrastMode;
   setSize: (size: number) => void;
-  setContrast: (contrast: ContrastMode) => void;
 };
 
 const listeners = new Set<() => void>();
@@ -42,38 +37,22 @@ function readSize(): number {
   return DEFAULT_LYRIC_SIZE;
 }
 
-function readContrast(): ContrastMode {
-  try {
-    const raw = localStorage.getItem(CONTRAST_KEY);
-    if (raw === "preto" || raw === "branco" || raw === "padrao") return raw;
-  } catch {
-    // Storage can be blocked. The warm page still works.
-  }
-  return "padrao";
-}
-
 function serverSize() {
   return DEFAULT_LYRIC_SIZE;
-}
-
-function serverContrast(): ContrastMode {
-  return "padrao";
 }
 
 const PrefsContext = createContext<Prefs | null>(null);
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const size = useSyncExternalStore(subscribe, readSize, serverSize);
-  const contrast = useSyncExternalStore(subscribe, readContrast, serverContrast);
 
   useEffect(() => {
-    document.documentElement.dataset.contrast = readContrast();
+    document.documentElement.removeAttribute("data-contrast");
     document.documentElement.style.setProperty("--lyric-size", `${readSize()}px`);
-  }, [size, contrast]);
+  }, [size]);
 
   const prefs: Prefs = {
     size,
-    contrast,
     setSize(next) {
       try {
         localStorage.setItem(SIZE_KEY, String(next));
@@ -81,15 +60,6 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         // Ignore quota and private-mode errors.
       }
       document.documentElement.style.setProperty("--lyric-size", `${next}px`);
-      emit();
-    },
-    setContrast(next) {
-      try {
-        localStorage.setItem(CONTRAST_KEY, next);
-      } catch {
-        // Ignore quota and private-mode errors.
-      }
-      document.documentElement.dataset.contrast = next;
       emit();
     },
   };
