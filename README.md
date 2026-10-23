@@ -1,4 +1,4 @@
-# Letras da roda
+# maresias
 
 Página de letras para um grupo cantar junto. A letra aparece grande, sem anúncio, sem login e sem cadastro. Não há cifra, conta, cookie de rastreio nem banco de dados.
 

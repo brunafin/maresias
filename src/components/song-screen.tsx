@@ -3,8 +3,7 @@
 import { BackLink, ContrastControl, bigButtonClass } from "@/components/controls";
 import { LYRIC_SIZES, usePrefs } from "@/components/preferences";
 import { Button } from "@/components/ui/button";
-import { findCurated } from "@/lib/catalog";
-import { presentArtist, titlesMatch } from "@/lib/text";
+import { presentArtist } from "@/lib/text";
 import { useEffect, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
@@ -45,7 +44,6 @@ export function SongScreen({ id }: { id: string }) {
     setSizeNote("");
   }
 
-  const curated = /^\d+$/.test(id) ? findCurated(Number(id)) : undefined;
   const invalidId = !/^\d+$/.test(id);
 
   useEffect(() => {
@@ -90,22 +88,14 @@ export function SongScreen({ id }: { id: string }) {
 
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
-  const title =
-    lyric && curated && titlesMatch(curated.title, lyric.title)
-      ? curated.title
-      : (lyric?.title ?? curated?.title ?? "Música");
-  const artist =
-    lyric && curated && titlesMatch(curated.title, lyric.title)
-      ? curated.artist
-      : lyric
-        ? presentArtist(lyric.artist)
-        : (curated?.artist ?? "");
+  const title = lyric?.title ?? "Música";
+  const artist = lyric ? presentArtist(lyric.artist) : "";
 
   useEffect(() => {
     if (!title || title === "Música") return;
-    document.title = `${title} — Letras da roda`;
+    document.title = `${title} — maresias`;
     return () => {
-      document.title = "Letras da roda";
+      document.title = "maresias";
     };
   }, [title]);
 

@@ -11,7 +11,7 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 export const metadata: Metadata = {
-  title: "Letras da roda",
+  title: "maresias",
   description: "Letras grandes para cantar junto, sem anúncio e sem cadastro.",
 };
 

@@ -1,9 +1,8 @@
 "use client";
 
-import { ContrastControl, bigButtonClass } from "@/components/controls";
+import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groups } from "@/lib/catalog";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
@@ -69,10 +68,10 @@ export function HomeScreen() {
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
         <header>
           <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
-            Letras da roda
+            maresias
           </h1>
           <p className="mt-4 text-2xl leading-snug">
-            Letras grandes para cantar junto. Sem anúncio e sem cadastro.
+            Escreva o nome da música ou do cantor e toque em Buscar.
           </p>
         </header>
 
@@ -137,26 +136,6 @@ export function HomeScreen() {
             </ul>
           </section>
         ) : null}
-
-        <div className="flex flex-col gap-10">
-          <h2 className="text-3xl font-bold">Para cantar agora</h2>
-          {groups.map((group) => (
-            <section key={group.id} aria-labelledby={`grupo-${group.id}`}>
-              <h3 id={`grupo-${group.id}`} className="text-3xl font-bold">
-                {group.title}
-              </h3>
-              <ul className="mt-4 flex flex-col gap-3">
-                {group.songs.map((song) => (
-                  <li key={song.lrclibId}>
-                    <SongLink title={song.title} artist={song.artist} id={song.lrclibId} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-
-        <ContrastControl />
       </main>
     </div>
   );
