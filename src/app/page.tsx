@@ -43,7 +43,7 @@ export default function Page() {
   );
 
   const lists = (
-    <Suspense fallback={<RecentSongs />}>
+    <Suspense fallback={<p className="text-2xl leading-snug">Abrindo…</p>}>
       <HomeLists />
     </Suspense>
   );
