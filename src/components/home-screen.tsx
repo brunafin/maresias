@@ -4,7 +4,7 @@ import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 
 type Hit = {
   id: number;
@@ -22,7 +22,7 @@ type SearchState =
 const songLinkClass =
   "flex min-h-20 flex-col justify-center rounded-2xl border-[3px] border-foreground bg-card px-5 py-4 text-foreground no-underline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground active:translate-y-px";
 
-export function HomeScreen() {
+export function HomeScreen({ account }: { account: ReactNode }) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const requestRef = useRef(0);
@@ -74,6 +74,7 @@ export function HomeScreen() {
   return (
     <div className="h-full overflow-y-auto">
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
+        {account}
         <header>
           <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
             maresias

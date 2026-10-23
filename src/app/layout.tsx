@@ -12,7 +12,7 @@ const atkinson = Atkinson_Hyperlegible({
 
 export const metadata: Metadata = {
   title: "maresias",
-  description: "Letras grandes para cantar junto, sem anúncio e sem cadastro.",
+  description: "Letras grandes para cantar junto, sem anúncio.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
