@@ -22,6 +22,6 @@ export async function GET(request: NextRequest) {
     const saved = await isFavorite(user.id, id);
     return Response.json({ ok: true, showSave: true, signedIn: true, saved }, { headers: noStore });
   } catch {
-    return Response.json({ ok: true, showSave: false, signedIn: true, saved: false }, { headers: noStore });
+    return Response.json({ ok: true, showSave: true, signedIn: true, saved: false }, { headers: noStore });
   }
 }

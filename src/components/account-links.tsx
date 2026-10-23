@@ -12,12 +12,6 @@ const quietClass =
 const menuActionClass =
   "flex min-h-16 w-full items-center justify-center rounded-2xl border-[3px] border-foreground px-4 text-2xl font-bold text-foreground no-underline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground";
 
-export function AppRevision({ className }: { className?: string }) {
-  const revision = process.env.NEXT_PUBLIC_APP_REVISION?.trim() ?? "";
-  if (!revision) return null;
-  return <p className={className}>Atualizado em {revision}</p>;
-}
-
 export function AccountLinks({ signedIn, firstName }: { signedIn: boolean; firstName: string | null }) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
@@ -87,7 +81,6 @@ export function AccountLinks({ signedIn, firstName }: { signedIn: boolean; first
                 </Button>
               </form>
             </div>
-            <AppRevision className="mt-auto pt-6 text-sm leading-snug text-foreground/70" />
           </div>
         </div>
       ) : null}

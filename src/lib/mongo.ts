@@ -1,9 +1,36 @@
 import { MongoClient, type Db } from "mongodb";
 
+const CONNECT_MS = 8000;
+
 const globalForMongo = globalThis as unknown as {
   mongoClient?: Promise<MongoClient>;
   mongoReady?: Promise<void>;
+  client?: MongoClient;
 };
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("O banco demorou demais.")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function dropClient() {
+  const hanging = globalForMongo.client;
+  globalForMongo.client = undefined;
+  globalForMongo.mongoClient = undefined;
+  globalForMongo.mongoReady = undefined;
+  void hanging?.close().catch(() => undefined);
+}
 
 export function isMongoConfigured(): boolean {
   return Boolean(process.env.MONGODB_URI);
@@ -26,21 +53,31 @@ export async function getDb(): Promise<Db> {
   if (!uri) throw new Error("O banco ainda não está ligado.");
 
   if (!globalForMongo.mongoClient) {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: CONNECT_MS,
+      connectTimeoutMS: CONNECT_MS,
+      family: 4,
+    });
+    globalForMongo.client = client;
     globalForMongo.mongoClient = client.connect().catch((error: unknown) => {
-      globalForMongo.mongoClient = undefined;
+      dropClient();
       throw error;
     });
   }
 
-  const client = await globalForMongo.mongoClient;
-  const db = client.db("maresias");
-  if (!globalForMongo.mongoReady) {
-    globalForMongo.mongoReady = prepare(db).catch((error: unknown) => {
-      globalForMongo.mongoReady = undefined;
-      throw error;
-    });
+  try {
+    const client = await withTimeout(globalForMongo.mongoClient, CONNECT_MS + 1000);
+    const db = client.db("maresias");
+    if (!globalForMongo.mongoReady) {
+      globalForMongo.mongoReady = prepare(db).catch((error: unknown) => {
+        globalForMongo.mongoReady = undefined;
+        throw error;
+      });
+    }
+    await withTimeout(globalForMongo.mongoReady, CONNECT_MS);
+    return db;
+  } catch (error) {
+    dropClient();
+    throw error;
   }
-  await globalForMongo.mongoReady;
-  return db;
 }

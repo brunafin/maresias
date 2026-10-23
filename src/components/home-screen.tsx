@@ -1,6 +1,5 @@
 "use client";
 
-import { AppRevision } from "@/components/account-links";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -84,12 +83,9 @@ export function HomeScreen({ account, lists }: { account: ReactNode; lists?: Rea
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
-        <div className="mx-auto flex w-full max-w-3xl flex-col">
-          <div className="flex items-center gap-3">
-            <h1 className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight">maresias</h1>
-            {account}
-          </div>
-          <AppRevision className="text-right text-sm leading-tight text-foreground/70" />
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+          <h1 className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight">maresias</h1>
+          {account}
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
