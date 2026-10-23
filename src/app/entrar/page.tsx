@@ -2,6 +2,7 @@ import { auth, isGoogleConfigured } from "@/auth";
 import { entrarComGoogle } from "@/app/entrar/actions";
 import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -12,21 +13,19 @@ const backClass =
 
 function EntrarScreen({ connected }: { connected: boolean }) {
   return (
-    <div className="h-full overflow-y-auto">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-        <div className="flex justify-end">
-          <Link href="/" className={backClass}>
-            Voltar para a busca
-          </Link>
-        </div>
+    <div className="relative h-full">
+      <Link href="/" className={`${backClass} absolute top-6 right-4 sm:right-8`}>
+        Voltar para a busca
+      </Link>
+      <main className="flex h-full items-center justify-center px-4">
         {connected ? (
           <form action={entrarComGoogle}>
-            <Button type="submit" size="grande" className={bigButtonClass}>
+            <Button type="submit" size="grande" className={cn(bigButtonClass, "w-auto max-w-full")}>
               Entrar com Google
             </Button>
           </form>
         ) : (
-          <p className="text-2xl leading-snug">O Google ainda não está ligado.</p>
+          <p className="max-w-sm text-center text-2xl leading-snug">O Google ainda não está ligado.</p>
         )}
       </main>
     </div>
