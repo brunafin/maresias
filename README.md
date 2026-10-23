@@ -1,6 +1,6 @@
 # maresias
 
-Página de letras para um grupo cantar junto. A letra aparece grande, sem anúncio. A busca funciona sem conta. Não há cifra, banco de dados nem cookie de rastreio.
+Página de letras para um grupo cantar junto. A letra aparece grande, sem anúncio. A busca funciona sem conta. Não há cookie de rastreio. Quem entra pode guardar músicas e escrever a própria cifra.
 
 As letras não ficam neste repositório. Quando alguém abre uma música, o site busca a letra na hora e mostra na tela.
 
@@ -33,11 +33,15 @@ Usamos a letra corrida. Se a resposta vier com o tempo do karaokê e também com
 
 O tamanho da letra fica gravado neste aparelho, para não precisar ajustar de novo. Isso não é uma conta. A tela fica clara, em tom quente.
 
+## Cifra
+
+Quem entrou pode cifrar uma música. **Cifrar** abre a edição: um toque na palavra escolhe o lugar, o acorde se escreve na barra e um arraste leva o acorde até a fresta entre as letras. **Pronto** guarda. Depois, **Cifra** liga e desliga esses acordes. O lápis volta para a edição. A cifra fica na conta da pessoa, separada das músicas guardadas. Com a cifra desligada, a tela mostra só a letra.
+
 ## Entrar com Google
 
 No alto da página inicial há o link Entrar. Ele abre `/entrar`, com um botão do Google e um caminho de volta para a busca. Sem conta, a busca e as letras continuam iguais.
 
-A sessão é um JWT. Não há banco de dados.
+A sessão é um JWT. As músicas guardadas e as cifras ficam na conta.
 
 Estas três variáveis ligam o Google:
 

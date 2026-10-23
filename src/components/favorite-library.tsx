@@ -4,6 +4,7 @@ import { FavoriteSongs } from "@/components/favorite-songs";
 import { RecentSongs } from "@/components/recent-songs";
 import { SavedSongs } from "@/components/saved-songs";
 import type { SavedSong } from "@/lib/favorites";
+import { compareFavorites } from "@/lib/text";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -66,7 +67,7 @@ export function HomeLibrary() {
   if (state.status === "loading") return <p className="text-2xl leading-snug">Abrindo…</p>;
   if (state.status === "error") return <SavedSongs songs={[]} unavailable />;
   if (state.status === "ready" && state.songs.length > 0) {
-    return <SavedSongs songs={state.songs.slice(0, 5)} showAll />;
+    return <SavedSongs songs={[...state.songs].sort(compareFavorites).slice(0, 5)} showAll />;
   }
   return <RecentSongs />;
 }

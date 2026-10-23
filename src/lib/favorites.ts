@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/mongo";
+import { compareFavorites } from "@/lib/text";
 
 export type SavedSong = {
   id: number;
@@ -14,12 +15,6 @@ type FavoriteDoc = {
   createdAt: Date;
 };
 
-const favoriteOrder = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
-
-function byAlphabet(a: { title: string; artist: string }, b: { title: string; artist: string }) {
-  return favoriteOrder.compare(a.title, b.title) || favoriteOrder.compare(a.artist, b.artist);
-}
-
 export async function listFavorites(userId: string, limit?: number): Promise<SavedSong[]> {
   const db = await getDb();
   const found = db
@@ -28,7 +23,7 @@ export async function listFavorites(userId: string, limit?: number): Promise<Sav
     .collation({ locale: "pt", strength: 1, numericOrdering: true })
     .sort({ title: 1, artist: 1 });
   const docs = await (limit ? found.limit(limit) : found).toArray();
-  return docs.map((doc) => ({ id: doc.songId, title: doc.title, artist: doc.artist })).sort(byAlphabet);
+  return docs.map((doc) => ({ id: doc.songId, title: doc.title, artist: doc.artist })).sort(compareFavorites);
 }
 
 export async function isFavorite(userId: string, songId: number): Promise<boolean> {

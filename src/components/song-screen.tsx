@@ -1,13 +1,16 @@
 "use client";
 
+import { CipherBar, CipherLyrics } from "@/components/cipher-lyrics";
 import { BackLink, bigButtonClass, compactButtonClass } from "@/components/controls";
 import { FavoriteButton } from "@/components/favorite-button";
 import { DEFAULT_LYRIC_SIZE, LYRIC_SIZES, usePrefs } from "@/components/preferences";
 import { Button } from "@/components/ui/button";
+import { useCipher } from "@/components/use-cipher";
 import { rememberRecent } from "@/components/recent-songs";
 import { lyricStanzas } from "@/lib/clean-lyrics";
 import { presentArtist } from "@/lib/text";
-import { FastForward, Pause, Play, Rewind } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { FastForward, Pause, Pencil, Play, Rewind } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
@@ -126,6 +129,7 @@ export function SongScreen({ id }: { id: string }) {
 
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
+  const cipher = useCipher(id, lyric);
   const title = lyric?.title ?? "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
 
@@ -141,6 +145,15 @@ export function SongScreen({ id }: { id: string }) {
     if (!lyric || !/^\d+$/.test(id)) return;
     rememberRecent({ id: Number(id), title: lyric.title, artist: lyric.artist });
   }, [id, lyric]);
+
+  useEffect(() => {
+    if (!cipher.editing || !cipher.selected || cipher.focusTick === 0) return;
+    const scroller = scrollerRef.current;
+    const word = scroller?.querySelector<HTMLElement>(`[data-cipher-word="${cipher.selected}"]`);
+    if (!scroller || !word) return;
+    const delta = word.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16;
+    scroller.scrollTo({ top: scroller.scrollTop + delta });
+  }, [cipher.editing, cipher.selected, cipher.focusTick]);
 
   useEffect(() => {
     if (!playing) return;
@@ -221,6 +234,59 @@ export function SongScreen({ id }: { id: string }) {
             <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
             {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
           </div>
+          {cipher.visible && lyric ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {cipher.editing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(compactButtonClass, "w-auto px-3")}
+                  disabled={cipher.pending}
+                  onClick={() => void cipher.finishEdit()}
+                >
+                  Pronto
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={cipher.exists ? cipher.enabled : undefined}
+                  className={cn(
+                    compactButtonClass,
+                    "w-auto px-3",
+                    cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
+                  )}
+                  disabled={cipher.pending}
+                  onClick={() => {
+                    if (!cipher.exists) {
+                      setPlaying(false);
+                      cipher.startEdit();
+                      return;
+                    }
+                    void cipher.toggle();
+                  }}
+                >
+                  {cipher.exists ? "Cifra" : "Cifrar"}
+                </Button>
+              )}
+              {cipher.exists && cipher.enabled && !cipher.editing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={compactButtonClass}
+                  aria-label="Editar cifra"
+                  disabled={cipher.pending}
+                  onClick={() => {
+                    setPlaying(false);
+                    cipher.startEdit();
+                  }}
+                >
+                  <Pencil className="size-6" aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {!invalidId && save ? (
             <FavoriteButton
               key={`${id}:${save.signedIn}:${save.saved}`}
@@ -250,7 +316,7 @@ export function SongScreen({ id }: { id: string }) {
           }
         }}
         onClick={() => {
-          if (!armed || dragRef.current.moved) return;
+          if (cipher.editing || !armed || dragRef.current.moved) return;
           toggleScroll();
         }}
       >
@@ -279,8 +345,19 @@ export function SongScreen({ id }: { id: string }) {
               </Button>
             </div>
           ) : null}
-          {lyric ? (
+          {lyric && (cipher.editing || cipher.viewMarks.length > 0) ? (
+            <CipherLyrics
+              stanzas={cipher.stanzas}
+              marks={cipher.viewMarks}
+              editing={cipher.editing}
+              selected={cipher.selected}
+              drifted={cipher.drifted}
+              onSelect={cipher.selectWord}
+              onGap={cipher.setGap}
+            />
+          ) : lyric ? (
             <div className="letra flex flex-col" style={{ fontSize: "var(--lyric-size)", lineHeight: 1.6, gap: "0.85em" }}>
+              {cipher.drifted ? <p className="text-sm leading-snug">A letra mudou. Confira os acordes.</p> : null}
               {lyricStanzas(lyric.lyrics).map((stanza, index) => (
                 <p key={index} className="whitespace-pre-wrap">
                   {stanza}
@@ -297,6 +374,27 @@ export function SongScreen({ id }: { id: string }) {
             {sizeNote ? <p>{sizeNote}</p> : null}
             {scrollStatus ? <p>{scrollStatus}</p> : null}
           </div>
+          {cipher.editing ? (
+            <CipherBar
+              word={cipher.selectedWord?.text ?? null}
+              gap={cipher.selectedMark?.gap ?? 0}
+              value={cipher.chordInput}
+              error={cipher.chordError}
+              note={cipher.note}
+              pending={cipher.pending}
+              canClear={Boolean(cipher.selectedMark)}
+              focusTick={cipher.focusTick}
+              onChange={cipher.setChordInput}
+              onSave={cipher.saveChord}
+              onClear={cipher.clearChord}
+            />
+          ) : (
+            <>
+          {cipher.note ? (
+            <p className="text-center text-sm leading-snug" aria-live="polite">
+              {cipher.note}
+            </p>
+          ) : null}
           {sizeNote || (!armed && scrollNote) ? (
             <p className="text-center text-sm leading-snug" aria-hidden="true">
               {sizeNote || scrollNote}
@@ -381,6 +479,8 @@ export function SongScreen({ id }: { id: string }) {
               </Button>
             </div>
           </div>
+            </>
+          )}
         </div>
       </footer>
     </div>

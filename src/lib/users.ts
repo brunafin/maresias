@@ -1,3 +1,4 @@
+import { reassignCiphers } from "@/lib/ciphers";
 import { reassignFavorites } from "@/lib/favorites";
 import { getDb } from "@/lib/mongo";
 import type { Session } from "next-auth";
@@ -55,10 +56,9 @@ export async function ensureUser(user: SavedUser) {
   const createdAt = earliest(current?.createdAt, ...others.map((doc) => doc.createdAt)) ?? now;
 
   if (others.length) {
-    await reassignFavorites(
-      others.map((doc) => doc._id),
-      user.id,
-    );
+    const previousIds = others.map((doc) => doc._id);
+    await reassignFavorites(previousIds, user.id);
+    await reassignCiphers(previousIds, user.id);
     await users.deleteMany({ _id: { $in: others.map((doc) => doc._id) } });
   }
 

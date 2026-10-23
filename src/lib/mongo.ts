@@ -40,7 +40,9 @@ async function prepare(db: Db) {
   const names = new Set((await db.listCollections({}, { nameOnly: true }).toArray()).map((item) => item.name));
   if (!names.has("users")) await db.createCollection("users");
   if (!names.has("favorites")) await db.createCollection("favorites");
+  if (!names.has("ciphers")) await db.createCollection("ciphers");
   await db.collection("favorites").createIndex({ userId: 1, songId: 1 }, { unique: true });
+  await db.collection("ciphers").createIndex({ userId: 1, songId: 1 }, { unique: true });
   await db.collection("favorites").createIndex({ userId: 1, createdAt: -1 });
   await db.collection("users").createIndex(
     { email: 1 },
