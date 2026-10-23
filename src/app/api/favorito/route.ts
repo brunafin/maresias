@@ -8,14 +8,14 @@ const noStore = { "Cache-Control": "no-store" };
 
 export async function GET(request: NextRequest) {
   const id = Number(request.nextUrl.searchParams.get("id"));
-  if (!isGoogleConfigured() || !isMongoConfigured() || !Number.isInteger(id) || id <= 0) {
+  if (!Number.isInteger(id) || id <= 0 || !isGoogleConfigured()) {
     return Response.json({ ok: true, showSave: false, signedIn: false, saved: false }, { headers: noStore });
   }
 
   const session = await auth();
   const user = userFromSession(session);
-  if (!user) {
-    return Response.json({ ok: true, showSave: true, signedIn: false, saved: false }, { headers: noStore });
+  if (!user || !isMongoConfigured()) {
+    return Response.json({ ok: true, showSave: true, signedIn: Boolean(user), saved: false }, { headers: noStore });
   }
 
   try {

@@ -37,7 +37,7 @@ export function SongScreen({ id }: { id: string }) {
   const [scrollNote, setScrollNote] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [requestId, setRequestId] = useState(id);
-  const [save, setSave] = useState<SaveState>(null);
+  const [save, setSave] = useState<SaveState>({ signedIn: false, saved: false });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
 
@@ -49,7 +49,7 @@ export function SongScreen({ id }: { id: string }) {
     setPlaying(false);
     setScrollNote("");
     setSizeNote("");
-    setSave(null);
+    setSave({ signedIn: false, saved: false });
   }
 
   const invalidId = !/^\d+$/.test(id);
@@ -98,7 +98,8 @@ export function SongScreen({ id }: { id: string }) {
     if (invalidId) return;
     const controller = new AbortController();
     let cancelled = false;
-    fetch(`/api/favorito?id=${id}`, { signal: controller.signal })
+    const timer = window.setTimeout(() => controller.abort(), 8000);
+    fetch(`/api/favorito?id=${id}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as {
           ok?: boolean;
@@ -106,7 +107,7 @@ export function SongScreen({ id }: { id: string }) {
           signedIn?: boolean;
           saved?: boolean;
         };
-        if (cancelled || !response.ok || !body.ok || !body.showSave) return;
+        if (cancelled || !response.ok || !body.ok || body.showSave === false) return;
         setSave({ signedIn: Boolean(body.signedIn), saved: Boolean(body.saved) });
       })
       .catch((error: unknown) => {
@@ -115,6 +116,7 @@ export function SongScreen({ id }: { id: string }) {
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       controller.abort();
     };
   }, [id, invalidId]);
@@ -216,9 +218,9 @@ export function SongScreen({ id }: { id: string }) {
             <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
             {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
           </div>
-          {save ? (
+          {!invalidId && save ? (
             <FavoriteButton
-              key={id}
+              key={`${id}:${save.signedIn}:${save.saved}`}
               songId={Number(id)}
               title={lyric?.title ?? ""}
               artist={lyric?.artist ?? ""}

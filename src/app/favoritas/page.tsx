@@ -1,12 +1,8 @@
 import { auth, firstNameFromSession, isGoogleConfigured } from "@/auth";
 import { AccountLinks } from "@/components/account-links";
-import { FavoriteSongs } from "@/components/favorite-songs";
-import { listFavorites } from "@/lib/favorites";
-import { isMongoConfigured } from "@/lib/mongo";
-import { ensureUser, userFromSession } from "@/lib/users";
+import { FavoriteList } from "@/components/favorite-library";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
@@ -37,46 +33,24 @@ function FavoritesFrame({ account, children }: { account: ReactNode; children: R
   );
 }
 
-async function FavoritesContent() {
-  if (!isGoogleConfigured() || !isMongoConfigured()) {
-    redirect("/");
-  }
+async function FavoritesAccount() {
   await connection();
   const session = await auth();
-  const account = <AccountLinks signedIn={Boolean(session?.user)} firstName={firstNameFromSession(session)} />;
-  const user = userFromSession(session);
-  if (!user) redirect("/entrar");
-  try {
-    await ensureUser(user);
-    const songs = await listFavorites(user.id);
-    return (
-      <FavoritesFrame account={account}>
-        {songs.length === 0 ? (
-          <p className="text-2xl leading-snug">Nenhuma favorita ainda.</p>
-        ) : (
-          <FavoriteSongs songs={songs} />
-        )}
-      </FavoritesFrame>
-    );
-  } catch {
-    return (
-      <FavoritesFrame account={account}>
-        <p className="text-2xl leading-snug">Não conseguimos abrir as favoritas agora.</p>
-      </FavoritesFrame>
-    );
-  }
+  return <AccountLinks signedIn={Boolean(session?.user)} firstName={firstNameFromSession(session)} />;
 }
 
 export default function Page() {
-  return (
-    <Suspense
-      fallback={
-        <FavoritesFrame account={signedOut}>
-          <p className="text-2xl leading-snug">Abrindo as favoritas…</p>
-        </FavoritesFrame>
-      }
-    >
-      <FavoritesContent />
+  const account = isGoogleConfigured() ? (
+    <Suspense fallback={signedOut}>
+      <FavoritesAccount />
     </Suspense>
+  ) : (
+    signedOut
+  );
+
+  return (
+    <FavoritesFrame account={account}>
+      <FavoriteList />
+    </FavoritesFrame>
   );
 }
