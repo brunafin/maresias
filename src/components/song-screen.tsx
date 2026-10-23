@@ -1,8 +1,11 @@
 "use client";
 
 import { BackLink, bigButtonClass, compactButtonClass } from "@/components/controls";
-import { LYRIC_SIZES, usePrefs } from "@/components/preferences";
+import { FavoriteButton } from "@/components/favorite-button";
+import { DEFAULT_LYRIC_SIZE, LYRIC_SIZES, usePrefs } from "@/components/preferences";
 import { Button } from "@/components/ui/button";
+import { rememberRecent } from "@/components/recent-songs";
+import { lyricStanzas } from "@/lib/clean-lyrics";
 import { presentArtist } from "@/lib/text";
 import { FastForward, Pause, Play, Rewind } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +25,8 @@ type LoadState =
   | { status: "missing" }
   | { status: "error" };
 
+type SaveState = { signedIn: boolean; saved: boolean } | null;
+
 export function SongScreen({ id }: { id: string }) {
   const { size, setSize } = usePrefs();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
@@ -32,6 +37,7 @@ export function SongScreen({ id }: { id: string }) {
   const [scrollNote, setScrollNote] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [requestId, setRequestId] = useState(id);
+  const [save, setSave] = useState<SaveState>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
 
@@ -43,6 +49,7 @@ export function SongScreen({ id }: { id: string }) {
     setPlaying(false);
     setScrollNote("");
     setSizeNote("");
+    setSave(null);
   }
 
   const invalidId = !/^\d+$/.test(id);
@@ -87,6 +94,31 @@ export function SongScreen({ id }: { id: string }) {
     };
   }, [id, attempt, invalidId]);
 
+  useEffect(() => {
+    if (invalidId) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    fetch(`/api/favorito?id=${id}`, { signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          ok?: boolean;
+          showSave?: boolean;
+          signedIn?: boolean;
+          saved?: boolean;
+        };
+        if (cancelled || !response.ok || !body.ok || !body.showSave) return;
+        setSave({ signedIn: Boolean(body.signedIn), saved: Boolean(body.saved) });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [id, invalidId]);
+
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
   const title = lyric?.title ?? "Música";
@@ -99,6 +131,11 @@ export function SongScreen({ id }: { id: string }) {
       document.title = "maresias";
     };
   }, [title]);
+
+  useEffect(() => {
+    if (!lyric || !/^\d+$/.test(id)) return;
+    rememberRecent({ id: Number(id), title: lyric.title, artist: lyric.artist });
+  }, [id, lyric]);
 
   useEffect(() => {
     if (!playing) return;
@@ -130,7 +167,8 @@ export function SongScreen({ id }: { id: string }) {
 
   function changeSize(direction: -1 | 1) {
     const index = LYRIC_SIZES.indexOf(size as (typeof LYRIC_SIZES)[number]);
-    const current = index === -1 ? 2 : index;
+    const fallback = LYRIC_SIZES.indexOf(DEFAULT_LYRIC_SIZE);
+    const current = index === -1 ? fallback : index;
     const next = LYRIC_SIZES[current + direction];
     if (!next) {
       setSizeNote(
@@ -174,10 +212,21 @@ export function SongScreen({ id }: { id: string }) {
       <header className="shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
           <BackLink />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
             {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
           </div>
+          {save ? (
+            <FavoriteButton
+              key={id}
+              songId={Number(id)}
+              title={lyric?.title ?? ""}
+              artist={lyric?.artist ?? ""}
+              initialSaved={save.saved}
+              signedIn={save.signedIn}
+              ready={Boolean(lyric)}
+            />
+          ) : null}
         </div>
       </header>
 
@@ -226,12 +275,13 @@ export function SongScreen({ id }: { id: string }) {
             </div>
           ) : null}
           {lyric ? (
-            <p
-              className="letra whitespace-pre-wrap"
-              style={{ fontSize: "var(--lyric-size)", lineHeight: 1.6 }}
-            >
-              {lyric.lyrics}
-            </p>
+            <div className="letra flex flex-col" style={{ fontSize: "var(--lyric-size)", lineHeight: 1.6, gap: "0.85em" }}>
+              {lyricStanzas(lyric.lyrics).map((stanza, index) => (
+                <p key={index} className="whitespace-pre-wrap">
+                  {stanza}
+                </p>
+              ))}
+            </div>
           ) : null}
         </div>
       </div>

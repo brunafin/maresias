@@ -18,14 +18,19 @@ const configuredAuth: NextAuthResult | null = isGoogleConfigured()
         }),
       ],
       callbacks: {
-        jwt({ token, profile }) {
+        jwt({ token, profile, account }) {
+          // Sem um banco do Auth.js, cada login recebe um id novo. O id da conta Google não muda.
+          if (typeof account?.providerAccountId === "string" && account.providerAccountId) {
+            token.sub = account.providerAccountId;
+          }
           const given = profile?.given_name?.trim();
           if (given) token.givenName = given;
           return token;
         },
         session({ session, token }) {
-          if (session.user && typeof token.givenName === "string") {
-            session.user.givenName = token.givenName;
+          if (session.user) {
+            if (typeof token.sub === "string") session.user.id = token.sub;
+            if (typeof token.givenName === "string") session.user.givenName = token.givenName;
           }
           return session;
         },

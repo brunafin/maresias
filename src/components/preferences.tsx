@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 
-export const LYRIC_SIZES = [28, 32, 40, 48, 56, 64, 72, 80] as const;
+export const LYRIC_SIZES = [16, 20, 24, 28, 32, 40, 48, 56, 64, 72, 80] as const;
 export const DEFAULT_LYRIC_SIZE = 40;
 
 const SIZE_KEY = "letras-da-roda-tamanho";

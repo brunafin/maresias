@@ -1,6 +1,5 @@
 "use client";
 
-import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -22,7 +21,10 @@ type SearchState =
 const songLinkClass =
   "flex min-h-20 flex-col justify-center rounded-2xl border-[3px] border-foreground bg-card px-5 py-4 text-foreground no-underline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground active:translate-y-px";
 
-export function HomeScreen({ account }: { account: ReactNode }) {
+const searchActionClass =
+  "h-auto min-h-16 min-w-0 flex-1 touch-manipulation rounded-2xl border-[3px] border-foreground px-4 py-3 text-center text-xl font-bold leading-tight focus-visible:ring-4";
+
+export function HomeScreen({ account, lists }: { account: ReactNode; lists?: ReactNode }) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const requestRef = useRef(0);
@@ -33,6 +35,13 @@ export function HomeScreen({ account }: { account: ReactNode }) {
       requestRef.current += 1;
       setState({ status: "idle" });
     }
+  }
+
+  function clearSearch() {
+    requestRef.current += 1;
+    setQuery("");
+    setState({ status: "idle" });
+    document.getElementById("busca")?.focus();
   }
 
   async function onSubmit(event: FormEvent) {
@@ -72,20 +81,17 @@ export function HomeScreen({ account }: { account: ReactNode }) {
       : "";
 
   return (
-    <div className="h-full overflow-y-auto">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-        {account}
-        <header>
-          <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
-            maresias
-          </h1>
-          <p className="mt-4 text-2xl leading-snug">
-            Escreva o nome da música ou do cantor e toque em Buscar.
-          </p>
-        </header>
-
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+          <h1 className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight">maresias</h1>
+          {account}
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
         <form onSubmit={onSubmit} className="flex flex-col gap-4" role="search">
-          <label htmlFor="busca" className="text-2xl font-bold">
+          <label htmlFor="busca" className="sr-only">
             Buscar uma música
           </label>
           <Input
@@ -98,9 +104,14 @@ export function HomeScreen({ account }: { account: ReactNode }) {
             enterKeyHint="search"
             className="h-20 rounded-2xl border-[3px] bg-card px-5 text-3xl placeholder:text-3xl placeholder:text-foreground/70 md:text-3xl"
           />
-          <Button type="submit" size="grande" className={bigButtonClass} disabled={state.status === "loading"}>
-            {state.status === "loading" ? "Procurando…" : "Buscar"}
-          </Button>
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" size="grande" className={searchActionClass} onClick={clearSearch}>
+              Limpar
+            </Button>
+            <Button type="submit" size="grande" className={searchActionClass} disabled={state.status === "loading"}>
+              {state.status === "loading" ? "Procurando…" : "Buscar"}
+            </Button>
+          </div>
         </form>
 
         <div aria-live="polite" className="text-2xl leading-snug">
@@ -118,6 +129,8 @@ export function HomeScreen({ account }: { account: ReactNode }) {
           {state.status === "results" ? <p>{resultCount}</p> : null}
         </div>
 
+        {state.status === "idle" ? lists : null}
+
         {state.status === "results" ? (
           <section aria-labelledby="resultados">
             <h2 id="resultados" className="text-3xl font-bold">
@@ -132,7 +145,8 @@ export function HomeScreen({ account }: { account: ReactNode }) {
             </ul>
           </section>
         ) : null}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
