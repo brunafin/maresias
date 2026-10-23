@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
 const chordClass =
-  "absolute left-0 top-0 z-10 min-w-6 cursor-grab touch-none pr-3 pb-2 text-left text-[0.5em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] select-none";
+  "absolute left-0 top-0 z-10 min-w-6 cursor-grab touch-none pr-3 pb-2 text-left text-[0.58em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] select-none";
 
 function sameLayout(left: Record<string, number[]>, right: Record<string, number[]>) {
   const keys = Object.keys(left);
@@ -108,7 +108,7 @@ function ChordWord({
   return (
     <span data-cipher-word={key} className="inline-flex flex-col">
       {mark ? (
-        <span data-slot className="relative block h-[0.66em]">
+        <span data-slot className="relative block h-[0.74em]">
           {editing && selected
             ? xs?.map((tick, index) => (
                 <span
