@@ -1,5 +1,5 @@
 import { auth, firstNameFromSession, isGoogleConfigured } from "@/auth";
-import { AccountLinks } from "@/components/account-links";
+import { AccountLinks, AppRevision } from "@/components/account-links";
 import { FavoriteSongs } from "@/components/favorite-songs";
 import { listFavorites } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
@@ -20,11 +20,14 @@ function FavoritesFrame({ account, children }: { account: ReactNode; children: R
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-          <Link href="/" className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight text-foreground no-underline">
-            maresias
-          </Link>
-          {account}
+        <div className="mx-auto flex w-full max-w-3xl flex-col">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight text-foreground no-underline">
+              maresias
+            </Link>
+            {account}
+          </div>
+          <AppRevision className="text-right text-sm leading-tight text-foreground/70" />
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
