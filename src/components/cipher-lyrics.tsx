@@ -2,12 +2,15 @@
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { lyricLines, placeLabel, wordKey, type CipherMark, type LyricWord } from "@/lib/cipher-marks";
+import { lyricLines, normalizeChord, placeLabel, wordKey, type CipherMark, type LyricWord } from "@/lib/cipher-marks";
+import { chordBoard } from "@/lib/chord-catalog";
 import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
 const chordClass =
-  "absolute left-0 top-0 z-10 min-w-6 cursor-grab touch-none pr-3 pb-2 text-left text-[0.58em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] select-none";
+  "absolute left-0 top-0 z-10 min-w-6 cursor-grab touch-none pr-3 pb-2 text-left text-[0.74em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] normal-case select-none";
+
+const highlightClass = "bg-[#ffe14a] text-inherit box-decoration-clone";
 
 function sameLayout(left: Record<string, number[]>, right: Record<string, number[]>) {
   const keys = Object.keys(left);
@@ -108,7 +111,7 @@ function ChordWord({
   return (
     <span data-cipher-word={key} className="inline-flex flex-col">
       {mark ? (
-        <span data-slot className="relative block h-[0.74em]">
+        <span data-slot className="relative block h-[0.96em]">
           {editing && selected
             ? xs?.map((tick, index) => (
                 <span
@@ -178,7 +181,7 @@ function ChordWord({
           type="button"
           className={cn(
             "m-0 border-0 bg-transparent p-0 text-left font-[inherit] leading-none text-inherit",
-            selected && "rounded bg-secondary",
+            selected && cn(highlightClass, "px-[0.08em]"),
           )}
           aria-label={mark ? `Acorde ${mark.chord} em ${word.text}. Toque para mudar.` : `Colocar acorde em ${word.text}`}
           onClick={(event) => {
@@ -275,6 +278,13 @@ export function CipherLyrics({
 const barButtonClass =
   "h-12 w-auto min-w-12 touch-manipulation rounded-xl border-2 border-foreground bg-background px-3 text-lg font-bold text-foreground shadow-none focus-visible:ring-4";
 
+function scrollChildIntoView(root: HTMLElement, child: HTMLElement) {
+  const rootRect = root.getBoundingClientRect();
+  const rect = child.getBoundingClientRect();
+  if (rect.top < rootRect.top) root.scrollTop -= rootRect.top - rect.top;
+  else if (rect.bottom > rootRect.bottom) root.scrollTop += rect.bottom - rootRect.bottom;
+}
+
 export function CipherBar({
   word,
   gap,
@@ -297,20 +307,30 @@ export function CipherBar({
   canClear: boolean;
   focusTick: number;
   onChange: (value: string) => void;
-  onSave: () => void;
+  onSave: (chord?: string) => void;
   onClear: () => void;
 }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const current = normalizeChord(value);
+
   useEffect(() => {
     if (!word || focusTick === 0) return;
-    document.getElementById("cifra-acorde")?.focus();
+    listRef.current?.focus();
   }, [focusTick, word]);
+
+  useEffect(() => {
+    const root = listRef.current;
+    if (!root) return;
+    const active = root.querySelector<HTMLElement>("[aria-pressed='true']");
+    if (active) scrollChildIntoView(root, active);
+  }, [word, current]);
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <p className="text-center text-sm leading-snug">
+      <p className="text-center text-base leading-snug">
         {word ? (
           <>
-            Acorde em {word}
+            Acorde em <mark className={cn(highlightClass, "px-1 font-bold")}>{word}</mark>
             {canClear ? `, ${placeLabel(word, gap)}` : ""}.
           </>
         ) : (
@@ -318,35 +338,78 @@ export function CipherBar({
         )}
       </p>
       {word ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-sm font-bold" htmlFor="cifra-acorde">
-            Acorde
-            <Input
-              id="cifra-acorde"
-              value={value}
-              autoCapitalize="off"
-              autoComplete="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? "cifra-erro" : undefined}
-              className="h-12 rounded-xl border-2 border-foreground bg-card px-3 text-lg font-bold"
-              onChange={(event) => onChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  onSave();
-                }
-              }}
-            />
-          </label>
-          <Button type="button" variant="outline" className={barButtonClass} disabled={pending} onClick={onSave}>
-            Salvar
-          </Button>
-          <Button type="button" variant="outline" className={barButtonClass} disabled={pending || !canClear} onClick={onClear}>
-            Apagar
-          </Button>
-        </div>
+        <>
+          <div
+            ref={listRef}
+            tabIndex={-1}
+            role="group"
+            aria-label="Acordes principais"
+            className="max-h-[min(22rem,42vh)] w-full overflow-y-auto overscroll-contain outline-none"
+          >
+            <div className="flex flex-col gap-1">
+              {chordBoard().map((row, index) => (
+                <div
+                  key={row.id}
+                  role="group"
+                  aria-label={row.label}
+                  className={cn("grid grid-cols-7 gap-1", index === 3 && "mt-2")}
+                >
+                  {row.cells.map((cell, cellIndex) =>
+                    cell ? (
+                      <button
+                        key={cell.chord}
+                        type="button"
+                        aria-pressed={cell.chord === current}
+                        aria-label={`${cell.chord}, ${cell.label}`}
+                        disabled={pending}
+                        className={cn(
+                          "flex h-12 items-center justify-center rounded-lg border-2 border-foreground px-0.5 font-bold leading-none normal-case focus-visible:ring-4 focus-visible:ring-foreground focus-visible:outline-none disabled:opacity-50",
+                          cell.chord.length >= 3 ? "text-sm sm:text-base" : "text-lg",
+                          cell.chord === current ? "bg-foreground text-background" : "bg-card text-foreground",
+                        )}
+                        onClick={() => onSave(cell.chord)}
+                      >
+                        {cell.chord}
+                      </button>
+                    ) : (
+                      <span key={`${row.id}-${cellIndex}`} aria-hidden="true" />
+                    ),
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-sm font-bold" htmlFor="cifra-acorde">
+              Outro acorde
+              <Input
+                id="cifra-acorde"
+                value={value}
+                placeholder="ex.: Bb"
+                autoCapitalize="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "cifra-erro" : undefined}
+                className="h-12 rounded-xl border-2 border-foreground bg-card px-3 text-lg font-bold normal-case placeholder:text-base placeholder:font-normal"
+                onChange={(event) => onChange(event.target.value)}
+                onBlur={() => {
+                  if (value.trim()) onSave();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    onSave();
+                  }
+                }}
+              />
+            </label>
+            <Button type="button" variant="outline" className={barButtonClass} disabled={pending || !canClear} onClick={onClear}>
+              Apagar
+            </Button>
+          </div>
+        </>
       ) : null}
       {error ? (
         <p id="cifra-erro" className="text-center text-sm leading-snug text-destructive">

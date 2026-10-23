@@ -1,16 +1,13 @@
-import { auth, firstNameFromSession, isGoogleConfigured } from "@/auth";
-import { AccountLinks } from "@/components/account-links";
+import { isGoogleConfigured } from "@/auth";
+import { AccountSlot, signedOutAccount } from "@/components/account-slot";
 import { FavoriteList } from "@/components/favorite-library";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Favoritas — maresias",
 };
-
-const signedOut = <AccountLinks signedIn={false} firstName={null} />;
 
 function FavoritesFrame({ account, children }: { account: ReactNode; children: ReactNode }) {
   return (
@@ -33,19 +30,13 @@ function FavoritesFrame({ account, children }: { account: ReactNode; children: R
   );
 }
 
-async function FavoritesAccount() {
-  await connection();
-  const session = await auth();
-  return <AccountLinks signedIn={Boolean(session?.user)} firstName={firstNameFromSession(session)} />;
-}
-
 export default function Page() {
   const account = isGoogleConfigured() ? (
-    <Suspense fallback={signedOut}>
-      <FavoritesAccount />
+    <Suspense fallback={signedOutAccount}>
+      <AccountSlot />
     </Suspense>
   ) : (
-    signedOut
+    signedOutAccount
   );
 
   return (

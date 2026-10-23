@@ -1,5 +1,7 @@
 import { type CipherMark } from "@/lib/cipher-marks";
+import type { SavedSong } from "@/lib/favorites";
 import { getDb } from "@/lib/mongo";
+import { compareFavorites } from "@/lib/text";
 
 export type StoredCipher = {
   userId: string;
@@ -14,6 +16,26 @@ export type StoredCipher = {
 };
 
 type CipherDoc = StoredCipher;
+
+export async function listCipheredIds(userId: string): Promise<Set<number>> {
+  const db = await getDb();
+  const docs = await db
+    .collection<CipherDoc>("ciphers")
+    .find({ userId }, { projection: { _id: 0, songId: 1 } })
+    .toArray();
+  return new Set(docs.map((doc) => doc.songId));
+}
+
+export async function listCiphers(userId: string): Promise<SavedSong[]> {
+  const db = await getDb();
+  const docs = await db
+    .collection<CipherDoc>("ciphers")
+    .find({ userId }, { projection: { songId: 1, title: 1, artist: 1 } })
+    .collation({ locale: "pt", strength: 1, numericOrdering: true })
+    .sort({ title: 1, artist: 1 })
+    .toArray();
+  return docs.map((doc) => ({ id: doc.songId, title: doc.title, artist: doc.artist })).sort(compareFavorites);
+}
 
 export async function getCipher(userId: string, songId: number): Promise<StoredCipher | null> {
   const db = await getDb();

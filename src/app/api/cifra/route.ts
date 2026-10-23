@@ -2,7 +2,8 @@ import { auth, isGoogleConfigured } from "@/auth";
 import { readMarks, type CipherMark } from "@/lib/cipher-marks";
 import { getCipher, removeCipher, saveCipher, setCipherEnabled } from "@/lib/ciphers";
 import { isMongoConfigured } from "@/lib/mongo";
-import { ensureUser, userFromSession } from "@/lib/users";
+import { readNickname } from "@/lib/nickname";
+import { ensureUser, findUserByNickname, userFromSession } from "@/lib/users";
 import { type NextRequest } from "next/server";
 
 const noStore = { "Cache-Control": "no-store" };
@@ -33,6 +34,39 @@ export async function GET(request: NextRequest) {
       { ...empty, showCipher: true, signedIn: Boolean(user) },
       { headers: noStore },
     );
+  }
+
+  const sharedName = readNickname(request.nextUrl.searchParams.get("de"));
+  if (request.nextUrl.searchParams.has("de")) {
+    if (!sharedName) {
+      return Response.json({ ...empty, showCipher: true, signedIn: true, shared: true }, { headers: noStore });
+    }
+    try {
+      const person = await findUserByNickname(sharedName);
+      if (!person) {
+        return Response.json(
+          { ...empty, showCipher: true, signedIn: true, shared: true, nickname: sharedName },
+          { headers: noStore },
+        );
+      }
+      const cipher = await getCipher(person.id, id);
+      return Response.json(
+        {
+          ok: true,
+          showCipher: true,
+          signedIn: true,
+          shared: true,
+          nickname: person.nickname,
+          name: person.name,
+          exists: Boolean(cipher),
+          enabled: Boolean(cipher),
+          marks: cipher?.marks ?? [],
+        },
+        { headers: noStore },
+      );
+    } catch {
+      return Response.json({ ...empty, showCipher: true, signedIn: true, shared: true }, { headers: noStore });
+    }
   }
 
   try {

@@ -48,6 +48,10 @@ async function prepare(db: Db) {
     { email: 1 },
     { unique: true, partialFilterExpression: { email: { $type: "string" } } },
   );
+  await db.collection("users").createIndex(
+    { nickname: 1 },
+    { unique: true, partialFilterExpression: { nickname: { $type: "string" } } },
+  );
 }
 
 export async function getDb(): Promise<Db> {

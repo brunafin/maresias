@@ -1,3 +1,5 @@
+import { isMongoConfigured } from "@/lib/mongo";
+import { ensureUser } from "@/lib/users";
 import NextAuth, { type NextAuthResult } from "next-auth";
 import Google from "next-auth/providers/google";
 import type { Session } from "next-auth";
@@ -17,6 +19,25 @@ const configuredAuth: NextAuthResult | null = isGoogleConfigured()
           clientSecret: process.env.AUTH_GOOGLE_SECRET,
         }),
       ],
+      events: {
+        async signIn({ user, account, profile }) {
+          const id = account?.providerAccountId?.trim();
+          if (!id || !isMongoConfigured()) return;
+          const record = profile as { given_name?: unknown } | undefined;
+          const givenName = typeof record?.given_name === "string" ? record.given_name : null;
+          try {
+            await ensureUser({
+              id,
+              email: user.email ?? null,
+              name: user.name ?? null,
+              givenName,
+              image: user.image ?? null,
+            });
+          } catch {
+            // A próxima página tenta de novo, se o apelido ainda não existir.
+          }
+        },
+      },
       callbacks: {
         jwt({ token, profile, account }) {
           // Sem um banco do Auth.js, cada login recebe um id novo. O id da conta Google não muda.

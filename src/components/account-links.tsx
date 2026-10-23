@@ -12,8 +12,17 @@ const quietClass =
 const menuActionClass =
   "flex min-h-16 w-full items-center justify-center rounded-2xl border-[3px] border-foreground px-4 text-2xl font-bold text-foreground no-underline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground";
 
-export function AccountLinks({ signedIn, firstName }: { signedIn: boolean; firstName: string | null }) {
+export function AccountLinks({
+  signedIn,
+  firstName,
+  nickname,
+}: {
+  signedIn: boolean;
+  firstName: string | null;
+  nickname: string | null;
+}) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const menuId = useId();
   const titleId = useId();
 
@@ -71,9 +80,30 @@ export function AccountLinks({ signedIn, firstName }: { signedIn: boolean; first
                 <X className="size-6" aria-hidden="true" />
               </button>
             </div>
+            {nickname ? (
+              <button
+                type="button"
+                className="mt-3 w-fit text-left text-xl leading-snug text-foreground/80 underline-offset-4 hover:underline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground"
+                aria-label={copied ? "Apelido copiado" : `Copiar o apelido ${nickname}`}
+                onClick={() => {
+                  void navigator.clipboard.writeText(nickname).then(
+                    () => {
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 2000);
+                    },
+                    () => undefined,
+                  );
+                }}
+              >
+                {copied ? "Apelido copiado" : `Apelido ${nickname}`}
+              </button>
+            ) : null}
             <div className="mt-8 flex flex-col gap-4">
               <Link href="/favoritas" className={menuActionClass} onClick={() => setOpen(false)}>
                 Favoritas
+              </Link>
+              <Link href="/amigos" className={menuActionClass} onClick={() => setOpen(false)}>
+                Amigos
               </Link>
               <form action={sair}>
                 <Button type="submit" variant="outline" size="grande" className="h-auto min-h-16 w-full rounded-2xl border-[3px] border-foreground text-2xl font-bold">

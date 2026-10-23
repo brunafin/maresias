@@ -1,4 +1,5 @@
 import { SongScreen } from "@/components/song-screen";
+import { readNickname } from "@/lib/nickname";
 import { Suspense } from "react";
 
 function SongPending() {
@@ -9,15 +10,29 @@ function SongPending() {
   );
 }
 
-async function SongFromParams({ params }: { params: Promise<{ id: string }> }) {
+async function SongFromParams({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ de?: string | string[] }>;
+}) {
   const { id } = await params;
-  return <SongScreen id={id} />;
+  const query = await searchParams;
+  const raw = Array.isArray(query.de) ? query.de[0] : query.de;
+  return <SongScreen id={id} from={readNickname(raw)} />;
 }
 
-export default function Page({ params }: { params: Promise<{ id: string }> }) {
+export default function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ de?: string | string[] }>;
+}) {
   return (
     <Suspense fallback={<SongPending />}>
-      <SongFromParams params={params} />
+      <SongFromParams params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

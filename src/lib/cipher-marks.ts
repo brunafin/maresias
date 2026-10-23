@@ -1,4 +1,4 @@
-import { isChordToken } from "@/lib/clean-lyrics";
+import { chordToken, isChordToken } from "@/lib/clean-lyrics";
 
 export type CipherMark = {
   stanza: number;
@@ -30,9 +30,19 @@ export function lyricKey(lyrics: string): string {
 }
 
 export function normalizeChord(raw: string): string | null {
-  const token = raw.trim().replace(/^[([|]+/g, "").replace(/[)\]|.,;:]+$/g, "");
+  const token = chordToken(raw);
   if (!token || token.length > MAX_CHORD || !isChordToken(token)) return null;
-  return token[0].toUpperCase() + token.slice(1);
+  const match = /^([A-Ga-g])(#|b)?(.*)$/.exec(token);
+  if (!match) return null;
+  const letter = match[1].toUpperCase();
+  const accidental = match[2] ?? "";
+  let rest = match[3];
+  if (/^min/i.test(rest)) rest = `m${rest.slice(3)}`;
+  else if (/^m(?!aj)/i.test(rest)) rest = `m${rest.slice(1)}`;
+  else if (match[1] === match[1].toLowerCase() && !/^maj/i.test(rest)) rest = `m${rest}`;
+  const chord = letter + accidental + rest;
+  if (!isChordToken(chord)) return null;
+  return chord;
 }
 
 export function wordKey(word: { stanza: number; line: number; word: number }) {

@@ -18,6 +18,9 @@ type Doc = {
   exists: boolean;
   enabled: boolean;
   marks: CipherMark[];
+  shared: boolean;
+  owner: string | null;
+  ownerName: string | null;
 };
 
 type SaveResult = {
@@ -27,9 +30,19 @@ type SaveResult = {
   marks?: CipherMark[];
 };
 
-export function useCipher(songId: string, lyric: Lyric | null) {
+function readyMarks(marks: CipherMark[]) {
+  const next: CipherMark[] = [];
+  for (const mark of marks) {
+    const chord = normalizeChord(mark.chord);
+    if (chord) next.push(chord === mark.chord ? mark : { ...mark, chord });
+  }
+  return next;
+}
+
+export function useCipher(songId: string, lyric: Lyric | null, from?: string | null) {
   const invalid = !/^\d+$/.test(songId);
-  const [seenId, setSeenId] = useState(songId);
+  const owner = from?.trim().toLowerCase() || "";
+  const [seenId, setSeenId] = useState(`${songId}:${owner}`);
   const [doc, setDoc] = useState<Doc | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CipherMark[] | null>(null);
@@ -40,8 +53,8 @@ export function useCipher(songId: string, lyric: Lyric | null) {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
 
-  if (seenId !== songId) {
-    setSeenId(songId);
+  if (seenId !== `${songId}:${owner}`) {
+    setSeenId(`${songId}:${owner}`);
     setDoc(null);
     setEditing(false);
     setDraft(null);
@@ -57,14 +70,26 @@ export function useCipher(songId: string, lyric: Lyric | null) {
     const controller = new AbortController();
     let cancelled = false;
     const timer = window.setTimeout(() => controller.abort(), 8000);
-    fetch(`/api/cifra?id=${songId}`, { cache: "no-store", signal: controller.signal })
+    const query = owner ? `/api/cifra?id=${songId}&de=${encodeURIComponent(owner)}` : `/api/cifra?id=${songId}`;
+    fetch(query, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        const body = (await response.json()) as SaveResult & { showCipher?: boolean; signedIn?: boolean };
+        const body = (await response.json()) as SaveResult & {
+          showCipher?: boolean;
+          signedIn?: boolean;
+          shared?: boolean;
+          nickname?: string;
+          name?: string | null;
+        };
         if (cancelled || !response.ok || !body.ok || !body.showCipher || !body.signedIn) return;
+        const shared = Boolean(body.shared);
+        const exists = Boolean(body.exists);
         setDoc({
-          exists: Boolean(body.exists),
-          enabled: Boolean(body.enabled),
-          marks: Array.isArray(body.marks) ? body.marks : [],
+          exists,
+          enabled: shared ? exists : Boolean(body.enabled),
+          marks: readyMarks(Array.isArray(body.marks) ? body.marks : []),
+          shared,
+          owner: typeof body.nickname === "string" ? body.nickname : owner || null,
+          ownerName: typeof body.name === "string" ? body.name : null,
         });
       })
       .catch((error: unknown) => {
@@ -76,7 +101,7 @@ export function useCipher(songId: string, lyric: Lyric | null) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [songId, invalid]);
+  }, [songId, invalid, owner]);
 
   const stanzas = useMemo(() => (lyric ? lyricStanzas(lyric.lyrics) : []), [lyric]);
   const placement = useMemo(
@@ -113,7 +138,7 @@ export function useCipher(songId: string, lyric: Lyric | null) {
   }
 
   function startEdit() {
-    if (!lyric || !doc) return;
+    if (!lyric || !doc || doc.shared) return;
     const next = placeMarks(stanzas, doc.marks);
     setDraft([...next.placed, ...next.loose]);
     setEditing(true);
@@ -142,12 +167,12 @@ export function useCipher(songId: string, lyric: Lyric | null) {
     });
   }
 
-  function saveChord() {
+  function saveChord(raw?: string) {
     if (!selectedWord) return;
-    const chord = normalizeChord(chordInput);
+    const chord = normalizeChord(typeof raw === "string" ? raw : chordInput);
     if (!chord) {
       setNote("");
-      setChordError("Use o acorde assim: Am, G7, F#m.");
+      setChordError("Use o acorde assim: C, Cm, G7, F#.");
       return;
     }
     const key = wordKey(selectedWord);
@@ -199,7 +224,10 @@ export function useCipher(songId: string, lyric: Lyric | null) {
       setDoc({
         exists: Boolean(result.exists),
         enabled: Boolean(result.enabled),
-        marks: Array.isArray(result.marks) ? result.marks : [],
+        marks: readyMarks(Array.isArray(result.marks) ? result.marks : []),
+        shared: false,
+        owner: null,
+        ownerName: null,
       });
       setEditing(false);
       setDraft(null);
@@ -214,7 +242,7 @@ export function useCipher(songId: string, lyric: Lyric | null) {
   }
 
   async function toggle() {
-    if (!doc?.exists || editing || pending) return;
+    if (!doc?.exists || doc.shared || editing || pending) return;
     const enabled = !doc.enabled;
     const previous = doc;
     setDoc({ ...doc, enabled });
@@ -230,7 +258,10 @@ export function useCipher(songId: string, lyric: Lyric | null) {
       setDoc({
         exists: true,
         enabled: Boolean(result.enabled),
-        marks: Array.isArray(result.marks) ? result.marks : previous.marks,
+        marks: readyMarks(Array.isArray(result.marks) ? result.marks : previous.marks),
+        shared: false,
+        owner: null,
+        ownerName: null,
       });
     } catch {
       setDoc(previous);
@@ -242,6 +273,9 @@ export function useCipher(songId: string, lyric: Lyric | null) {
 
   return {
     visible: Boolean(doc),
+    shared: Boolean(doc?.shared),
+    owner: doc?.owner ?? null,
+    ownerName: doc?.ownerName ?? null,
     exists: Boolean(doc?.exists),
     enabled: Boolean(doc?.enabled),
     editing,

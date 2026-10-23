@@ -11,6 +11,7 @@ import { lyricStanzas } from "@/lib/clean-lyrics";
 import { presentArtist } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import { FastForward, Pause, Pencil, Play, Rewind } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
@@ -30,7 +31,7 @@ type LoadState =
 
 type SaveState = { signedIn: boolean; saved: boolean } | null;
 
-export function SongScreen({ id }: { id: string }) {
+export function SongScreen({ id, from = null }: { id: string; from?: string | null }) {
   const { size, setSize } = usePrefs();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [armed, setArmed] = useState(false);
@@ -129,7 +130,7 @@ export function SongScreen({ id }: { id: string }) {
 
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
-  const cipher = useCipher(id, lyric);
+  const cipher = useCipher(id, lyric, from);
   const title = lyric?.title ?? "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
 
@@ -229,12 +230,26 @@ export function SongScreen({ id }: { id: string }) {
     <div className="flex h-full min-h-0 flex-col">
       <header className="shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-          <BackLink />
+          <BackLink href={from ? `/amigos?apelido=${from}` : "/"} />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
             {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
+            {cipher.shared && cipher.exists ? (
+              <p className="truncate text-sm leading-snug">
+                Cifra de {cipher.ownerName ? `${cipher.ownerName} · ` : ""}
+                {cipher.owner}
+              </p>
+            ) : null}
+            {from ? (
+              <Link
+                href={`/musica/${id}`}
+                className="text-sm leading-snug text-foreground underline underline-offset-4 focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground"
+              >
+                Sua versão
+              </Link>
+            ) : null}
           </div>
-          {cipher.visible && lyric ? (
+          {cipher.visible && lyric && !cipher.shared ? (
             <div className="flex shrink-0 items-center gap-2">
               {cipher.editing ? (
                 <Button

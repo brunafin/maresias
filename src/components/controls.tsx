@@ -11,11 +11,11 @@ export const bigButtonClass =
 export const compactButtonClass =
   "size-12 min-h-12 min-w-12 touch-manipulation rounded-xl border-2 border-foreground bg-background p-0 text-lg font-bold text-foreground shadow-none focus-visible:ring-4";
 
-export function BackLink() {
+export function BackLink({ href = "/" }: { href?: string }) {
   return (
     <Button
       nativeButton={false}
-      render={<Link href="/" />}
+      render={<Link href={href} />}
       variant="outline"
       size="icon"
       aria-label="Voltar"

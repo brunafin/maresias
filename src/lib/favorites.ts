@@ -5,6 +5,7 @@ export type SavedSong = {
   id: number;
   title: string;
   artist: string;
+  ciphered?: boolean;
 };
 
 type FavoriteDoc = {

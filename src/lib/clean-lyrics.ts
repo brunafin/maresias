@@ -3,18 +3,31 @@ const CHORD_TOKEN =
 
 const WEAK_WORDS = new Set(["a", "e", "em", "o", "os", "as", "de", "da", "do"]);
 
-function chordCore(raw: string): string {
-  return raw.trim().replace(/^[([|]+/g, "").replace(/[)\]|.,;:]+$/g, "");
+export function chordToken(raw: string): string {
+  let token = raw.trim().replace(/^[([|]+/g, "");
+  let previous = "";
+  while (token && token !== previous) {
+    previous = token;
+    token = token.replace(/[\]|.,;:]+$/g, "");
+    let opens = 0;
+    let closes = 0;
+    for (const char of token) {
+      if (char === "(") opens += 1;
+      else if (char === ")") closes += 1;
+    }
+    if (token.endsWith(")") && closes > opens) token = token.slice(0, -1);
+  }
+  return token;
 }
 
 export function isChordToken(raw: string): boolean {
-  const token = chordCore(raw);
+  const token = chordToken(raw);
   if (!token) return false;
   return CHORD_TOKEN.test(token);
 }
 
 function isStrongChord(raw: string): boolean {
-  const token = chordCore(raw);
+  const token = chordToken(raw);
   if (!isChordToken(token)) return false;
   if (WEAK_WORDS.has(token.toLowerCase())) return false;
   return /[#b0-9]|sus|dim|aug|maj|add|m/i.test(token);
