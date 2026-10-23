@@ -4,6 +4,7 @@ import { bigButtonClass } from "@/components/controls";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 const backClass =
@@ -33,6 +34,7 @@ function EntrarScreen({ connected }: { connected: boolean }) {
 }
 
 async function EntrarConnected() {
+  await connection();
   const session = await auth();
   if (session?.user) {
     redirect("/");
