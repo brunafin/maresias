@@ -1,4 +1,5 @@
 import { PreferencesProvider } from "@/components/preferences";
+import { pwaBootScript, pwaDevCleanupScript } from "@/lib/pwa";
 import { APP_VERSION } from "@/lib/version";
 import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
@@ -45,6 +46,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{document.documentElement.removeAttribute("data-contrast");var s=Number(localStorage.getItem("letras-da-roda-tamanho"));var ok=[16,20,24,28,32,40,48,56,64,72,80];if(ok.indexOf(s)!==-1){document.documentElement.style.setProperty("--lyric-size",s+"px");}}catch(e){}})();`,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: process.env.NODE_ENV === "production" ? pwaBootScript(APP_VERSION) : pwaDevCleanupScript(),
           }}
         />
         <PreferencesProvider>{children}</PreferencesProvider>

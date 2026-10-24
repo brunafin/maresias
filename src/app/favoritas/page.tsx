@@ -14,7 +14,7 @@ function FavoritesFrame({ account, children }: { account: ReactNode; children: R
     <div className="flex h-full min-h-0 flex-col">
       <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-          <Link href="/" className="min-w-0 flex-1 truncate text-3xl font-bold leading-tight text-foreground no-underline">
+          <Link href="/" className="shrink-0 text-3xl font-bold leading-tight text-foreground no-underline">
             maresias
           </Link>
           {account}
