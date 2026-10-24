@@ -1,5 +1,6 @@
 "use client";
 
+import { ChordBalloon } from "@/components/chord-diagram";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { lyricLines, normalizeChord, placeLabel, wordKey, type CipherMark, type LyricWord } from "@/lib/cipher-marks";
@@ -7,8 +8,12 @@ import { chordBoard } from "@/lib/chord-catalog";
 import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
-const chordClass =
-  "absolute left-0 top-0 z-10 min-w-6 cursor-grab touch-none pr-3 pb-2 text-left text-[0.74em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] normal-case select-none";
+const chordLook =
+  "absolute left-0 top-0 z-10 min-w-6 text-left text-[0.74em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] normal-case select-none";
+
+const chordClass = cn(chordLook, "cursor-grab touch-none pr-3 pb-2");
+
+const chordButtonClass = cn(chordLook, "cursor-pointer touch-manipulation");
 
 const highlightClass = "bg-[#ffe14a] text-inherit box-decoration-clone";
 
@@ -70,20 +75,26 @@ function ChordWord({
   editing,
   selected,
   dragging,
+  diagramOpen,
   xs,
   onSelect,
   onGap,
   onDrag,
+  onToggleDiagram,
+  onAnchor,
 }: {
   word: LyricWord;
   mark: CipherMark | null;
   editing: boolean;
   selected: boolean;
   dragging: boolean;
+  diagramOpen: boolean;
   xs: number[] | undefined;
   onSelect: (word: LyricWord, focus: boolean) => void;
   onGap: (key: string, gap: number) => void;
   onDrag: (key: string | null) => void;
+  onToggleDiagram: (key: string) => void;
+  onAnchor: (key: string, node: HTMLButtonElement | null) => void;
 }) {
   const key = wordKey(word);
   const gap = mark?.gap ?? 0;
@@ -170,9 +181,26 @@ function ChordWord({
               {mark.chord}
             </span>
           ) : (
-            <span className={cn(chordClass, "pointer-events-none cursor-auto pr-0 pb-0")} style={{ transform: `translateX(${x}px)` }}>
+            <button
+              type="button"
+              ref={(node) => onAnchor(key, node)}
+              data-chord-button
+              data-chord-key={key}
+              aria-expanded={diagramOpen}
+              aria-haspopup="dialog"
+              aria-controls={diagramOpen ? "desenho-acorde" : undefined}
+              aria-label={`Ver o desenho de ${mark.chord}`}
+              className={chordButtonClass}
+              style={{ transform: `translateX(${x}px)` }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleDiagram(key);
+              }}
+            >
+              <span aria-hidden="true" className="absolute -top-3 -right-2 -left-2 bottom-0" />
               {mark.chord}
-            </span>
+            </button>
           )}
         </span>
       ) : null}
@@ -216,14 +244,78 @@ export function CipherLyrics({
   onGap: (key: string, gap: number) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const anchors = useRef(new Map<string, HTMLButtonElement>());
   const [layout, setLayout] = useState<Record<string, number[]>>({});
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [positionIndex, setPositionIndex] = useState(0);
   const lines = useMemo(() => lyricLines(stanzas), [stanzas]);
   const byWord = useMemo(() => {
     const map = new Map<string, CipherMark>();
     for (const mark of marks) map.set(wordKey(mark), mark);
     return map;
   }, [marks]);
+
+  const openChord = openKey ? (byWord.get(openKey)?.chord ?? null) : null;
+
+  useEffect(() => {
+    if (editing) setOpenKey(null);
+  }, [editing]);
+
+  useEffect(() => {
+    if (openKey && !byWord.has(openKey)) setOpenKey(null);
+  }, [byWord, openKey]);
+
+  useEffect(() => {
+    setPositionIndex(0);
+  }, [openKey, openChord]);
+
+  useEffect(() => {
+    if (!openKey) return;
+    function dismiss(event: Event) {
+      const raw = event.target;
+      const target = raw instanceof Element ? raw : raw instanceof Node ? raw.parentElement : null;
+      if (!target) return;
+      if (target.closest("[data-chord-popover], [data-chord-button]")) return;
+      if (target.closest("[data-lyrics]")) {
+        const stopClick = (click: Event) => {
+          click.stopPropagation();
+          click.preventDefault();
+        };
+        document.addEventListener("click", stopClick, true);
+        window.setTimeout(() => document.removeEventListener("click", stopClick, true), 0);
+      }
+      setOpenKey(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      const anchor = anchors.current.get(openKey);
+      setOpenKey(null);
+      anchor?.focus({ preventScroll: true });
+    }
+    function onScroll() {
+      setOpenKey(null);
+    }
+    const scroller = rootRef.current?.closest("[data-lyrics]");
+    document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("keydown", onKey);
+    scroller?.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("keydown", onKey);
+      scroller?.removeEventListener("scroll", onScroll);
+    };
+  }, [openKey]);
+
+  function toggleDiagram(key: string) {
+    setOpenKey((current) => (current === key ? null : key));
+    setPositionIndex(0);
+  }
+
+  function setAnchor(key: string, node: HTMLButtonElement | null) {
+    if (node) anchors.current.set(key, node);
+    else anchors.current.delete(key);
+  }
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -260,10 +352,13 @@ export function CipherLyrics({
                     editing={editing}
                     selected={selected === key}
                     dragging={draggingKey === key}
+                    diagramOpen={openKey === key}
                     xs={layout[key]}
                     onSelect={onSelect}
                     onGap={onGap}
                     onDrag={setDraggingKey}
+                    onToggleDiagram={toggleDiagram}
+                    onAnchor={setAnchor}
                   />
                 );
               })}
@@ -271,6 +366,14 @@ export function CipherLyrics({
           ))}
         </div>
       ))}
+      {openKey && openChord && !editing ? (
+        <ChordBalloon
+          chord={openChord}
+          anchor={anchors.current.get(openKey) ?? null}
+          index={positionIndex}
+          onIndex={setPositionIndex}
+        />
+      ) : null}
     </div>
   );
 }

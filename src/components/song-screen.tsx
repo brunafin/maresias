@@ -9,11 +9,141 @@ import { useCipher } from "@/components/use-cipher";
 import { rememberRecent } from "@/components/recent-songs";
 import { lyricStanzas } from "@/lib/clean-lyrics";
 import { presentArtist } from "@/lib/text";
+import { transposeMarks, wrapSemitone } from "@/lib/transpose";
 import { cn } from "@/lib/utils";
-import { FastForward, Pause, Pencil, Play, Rewind } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Ellipsis, FastForward, Pause, Play, Rewind } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
+
+const TONE_AMOUNTS = ["", "Um meio tom", "Dois meios-tons", "Três meios-tons", "Quatro meios-tons", "Cinco meios-tons", "Seis meios-tons"];
+
+function tonePhrase(steps: number) {
+  if (steps === 0) return "Tom original.";
+  const amount = TONE_AMOUNTS[Math.abs(steps)] ?? `${Math.abs(steps)} meios-tons`;
+  return steps > 0 ? `${amount} acima.` : `${amount} abaixo.`;
+}
+
+function toneLabel(steps: number) {
+  if (steps > 0) return `+${steps}`;
+  if (steps < 0) return `−${Math.abs(steps)}`;
+  return "0";
+}
+
+function CipherOptions({
+  open,
+  onOpenChange,
+  canEdit,
+  canShift,
+  semitones,
+  onEdit,
+  onTone,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  canEdit: boolean;
+  canShift: boolean;
+  semitones: number;
+  onEdit: () => void;
+  onTone: (direction: -1 | 1) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    function dismiss(event: PointerEvent) {
+      const raw = event.target;
+      const target = raw instanceof Element ? raw : raw instanceof Node ? raw.parentElement : null;
+      if (!target || rootRef.current?.contains(target)) return;
+      if (target.closest("[data-lyrics]")) {
+        const stopClick = (click: Event) => {
+          click.stopPropagation();
+          click.preventDefault();
+        };
+        document.addEventListener("click", stopClick, true);
+        window.setTimeout(() => document.removeEventListener("click", stopClick, true), 0);
+      }
+      onOpenChange(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      onOpenChange(false);
+      rootRef.current?.querySelector<HTMLButtonElement>('[aria-label="Opções da cifra"]')?.focus();
+    }
+    document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn(
+          compactButtonClass,
+          open && "bg-foreground text-background hover:bg-foreground hover:text-background",
+        )}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        aria-label="Opções da cifra"
+        onClick={() => onOpenChange(!open)}
+      >
+        <Ellipsis className="size-6" aria-hidden="true" />
+      </Button>
+      {open ? (
+        <div
+          id={panelId}
+          className="absolute top-full right-0 z-40 mt-2 flex w-max flex-col gap-2 rounded-2xl border-[3px] border-foreground bg-background p-2"
+        >
+          {canEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(compactButtonClass, "w-full px-3")}
+              onClick={onEdit}
+            >
+              Editar cifra
+            </Button>
+          ) : null}
+          {canShift ? (
+            <div role="group" aria-label="Tom da cifra" className="flex items-center justify-center gap-2">
+              <span className="px-1 text-sm font-bold">Tom</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Descer meio tom"
+                onClick={() => onTone(-1)}
+              >
+                −
+              </Button>
+              <span className="w-8 text-center text-sm font-bold tabular-nums" aria-hidden="true">
+                {toneLabel(semitones)}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={compactButtonClass}
+                aria-label="Subir meio tom"
+                onClick={() => onTone(1)}
+              >
+                +
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type Lyric = {
   id: number | null;
@@ -41,6 +171,9 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const [attempt, setAttempt] = useState(0);
   const [requestId, setRequestId] = useState(id);
   const [save, setSave] = useState<SaveState>(null);
+  const [semitones, setSemitones] = useState(0);
+  const [toneNote, setToneNote] = useState("");
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
   const saveRequest = useRef(0);
@@ -54,6 +187,9 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     setScrollNote("");
     setSizeNote("");
     setSave(null);
+    setSemitones(0);
+    setToneNote("");
+    setOptionsOpen(false);
   }
 
   const invalidId = !/^\d+$/.test(id);
@@ -132,6 +268,13 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
   const cipher = useCipher(id, lyric, from);
+  const shownMarks = useMemo(
+    () => (cipher.editing ? cipher.viewMarks : transposeMarks(cipher.viewMarks, semitones)),
+    [cipher.editing, cipher.viewMarks, semitones],
+  );
+  const canEdit = Boolean(lyric) && cipher.visible && !cipher.shared && cipher.exists && cipher.enabled && !cipher.editing;
+  const canShift = Boolean(lyric) && !cipher.editing && cipher.viewMarks.length > 0;
+  const showOptions = canEdit || canShift;
   const title = lyric?.title ?? "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
 
@@ -184,6 +327,16 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [playing, speedIndex]);
+
+  useEffect(() => {
+    if (!showOptions) setOptionsOpen(false);
+  }, [showOptions]);
+
+  function changeTone(direction: -1 | 1) {
+    const next = wrapSemitone(semitones + direction);
+    setSemitones(next);
+    setToneNote(tonePhrase(next));
+  }
 
   function changeSize(direction: -1 | 1) {
     const index = LYRIC_SIZES.indexOf(size as (typeof LYRIC_SIZES)[number]);
@@ -238,7 +391,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
+      <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
           <BackLink href={from ? `/amigos/${from}` : "/"} />
           <div className="min-w-0 flex-1">
@@ -247,56 +400,58 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
                 <h1 className="line-clamp-2 text-xl font-bold leading-tight">{title}</h1>
                 {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
               </div>
-              {cipher.visible && lyric && !cipher.shared ? (
+              {cipher.visible && lyric && (!cipher.shared || showOptions) ? (
                 <div className="flex shrink-0 items-center gap-2">
-                  {cipher.editing ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(compactButtonClass, "w-auto px-3")}
-                      disabled={cipher.pending}
-                      onClick={() => void cipher.finishEdit()}
-                    >
-                      Pronto
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-pressed={cipher.exists ? cipher.enabled : undefined}
-                      className={cn(
-                        compactButtonClass,
-                        "w-auto px-3",
-                        cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
-                      )}
-                      disabled={cipher.pending}
-                      onClick={() => {
-                        if (!cipher.exists) {
-                          setPlaying(false);
-                          cipher.startEdit();
-                          return;
-                        }
-                        void cipher.toggle();
-                      }}
-                    >
-                      {cipher.exists ? "Cifra" : "Cifrar"}
-                    </Button>
-                  )}
-                  {cipher.exists && cipher.enabled && !cipher.editing ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className={compactButtonClass}
-                      aria-label="Editar cifra"
-                      disabled={cipher.pending}
-                      onClick={() => {
+                  {!cipher.shared ? (
+                    cipher.editing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(compactButtonClass, "w-auto px-3")}
+                        disabled={cipher.pending}
+                        onClick={() => void cipher.finishEdit()}
+                      >
+                        Pronto
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-pressed={cipher.exists ? cipher.enabled : undefined}
+                        className={cn(
+                          compactButtonClass,
+                          "w-auto px-3",
+                          cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
+                        )}
+                        disabled={cipher.pending}
+                        onClick={() => {
+                          setOptionsOpen(false);
+                          if (!cipher.exists) {
+                            setPlaying(false);
+                            cipher.startEdit();
+                            return;
+                          }
+                          void cipher.toggle();
+                        }}
+                      >
+                        {cipher.exists ? "Cifra" : "Cifrar"}
+                      </Button>
+                    )
+                  ) : null}
+                  {showOptions ? (
+                    <CipherOptions
+                      open={optionsOpen}
+                      onOpenChange={setOptionsOpen}
+                      canEdit={canEdit}
+                      canShift={canShift}
+                      semitones={semitones}
+                      onEdit={() => {
+                        setOptionsOpen(false);
                         setPlaying(false);
                         cipher.startEdit();
                       }}
-                    >
-                      <Pencil className="size-6" aria-hidden="true" />
-                    </Button>
+                      onTone={changeTone}
+                    />
                   ) : null}
                 </div>
               ) : null}
@@ -395,7 +550,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
           {lyric && (cipher.editing || cipher.viewMarks.length > 0) ? (
             <CipherLyrics
               stanzas={cipher.stanzas}
-              marks={cipher.viewMarks}
+              marks={shownMarks}
               editing={cipher.editing}
               selected={cipher.selected}
               drifted={cipher.drifted}
@@ -420,6 +575,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
           <div aria-live="polite" className="sr-only">
             {sizeNote ? <p>{sizeNote}</p> : null}
             {scrollStatus ? <p>{scrollStatus}</p> : null}
+            {toneNote ? <p>{toneNote}</p> : null}
           </div>
           {cipher.editing ? (
             <CipherBar
