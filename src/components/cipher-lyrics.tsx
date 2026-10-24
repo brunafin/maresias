@@ -272,6 +272,7 @@ export function CipherLyrics({
 
   useEffect(() => {
     if (!openKey) return;
+    const key = openKey;
     function dismiss(event: Event) {
       const raw = event.target;
       const target = raw instanceof Element ? raw : raw instanceof Node ? raw.parentElement : null;
@@ -289,7 +290,7 @@ export function CipherLyrics({
     }
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      const anchor = anchors.current.get(openKey);
+      const anchor = anchors.current.get(key);
       setOpenKey(null);
       anchor?.focus({ preventScroll: true });
     }
