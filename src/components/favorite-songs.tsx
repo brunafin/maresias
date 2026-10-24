@@ -1,6 +1,7 @@
 "use client";
 
 import { CipherBadge } from "@/components/cipher-badge";
+import { SongFilter, type SongFilterValue } from "@/components/song-filter";
 import { Input } from "@/components/ui/input";
 import type { SavedSong } from "@/lib/favorites";
 import { compareFavorites, matchesFavorite, presentArtist } from "@/lib/text";
@@ -12,7 +13,14 @@ const songLinkClass =
 
 export function FavoriteSongs({ songs }: { songs: SavedSong[] }) {
   const [query, setQuery] = useState("");
-  const visible = [...songs].sort(compareFavorites).filter((song) => matchesFavorite(song, query));
+  const [filter, setFilter] = useState<SongFilterValue>("todas");
+  const pool = filter === "cifradas" ? songs.filter((song) => song.ciphered) : songs;
+  const visible = [...pool].sort(compareFavorites).filter((song) => matchesFavorite(song, query));
+  const empty = query.trim()
+    ? "Nenhuma música com esse nome ou cantor."
+    : filter === "cifradas"
+      ? "Nenhuma cifra ainda."
+      : "Nenhuma música ainda.";
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -36,8 +44,10 @@ export function FavoriteSongs({ songs }: { songs: SavedSong[] }) {
         />
       </form>
 
+      <SongFilter value={filter} onChange={setFilter} />
+
       {visible.length === 0 ? (
-        <p className="text-2xl leading-snug">Nenhuma favorita com esse nome ou cantor.</p>
+        <p className="text-2xl leading-snug">{empty}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {visible.map((song) => (

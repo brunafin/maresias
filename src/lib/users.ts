@@ -103,6 +103,18 @@ export async function ensureUser(user: SavedUser): Promise<{ nickname: string }>
   throw new Error("Não conseguimos criar o apelido.");
 }
 
+export async function findUserById(id: string): Promise<PublicPerson | null> {
+  const userId = id.trim();
+  if (!userId) return null;
+  const db = await getDb();
+  const doc = await db.collection<UserDoc>("users").findOne(
+    { _id: userId },
+    { projection: { _id: 1, givenName: 1, name: 1, nickname: 1 } },
+  );
+  if (!doc?.nickname || !isNickname(doc.nickname)) return null;
+  return { id: doc._id, nickname: doc.nickname, name: displayName(doc) };
+}
+
 export async function findUserByNickname(nickname: string): Promise<PublicPerson | null> {
   if (!isNickname(nickname)) return null;
   const db = await getDb();

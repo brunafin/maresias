@@ -13,12 +13,15 @@ export function SavedSongs({
   songs,
   unavailable,
   showAll,
+  limit,
 }: {
   songs: SavedSong[];
   unavailable?: boolean;
   showAll?: boolean;
+  limit?: number;
 }) {
   if (!unavailable && songs.length === 0) return null;
+  const visible = typeof limit === "number" ? songs.slice(0, limit) : songs;
 
   return (
     <section aria-labelledby="favoritas">
@@ -29,7 +32,7 @@ export function SavedSongs({
         <p className="mt-4 text-2xl leading-snug">Não conseguimos abrir as favoritas agora.</p>
       ) : (
         <ul className="mt-4 flex flex-col gap-3">
-          {songs.map((song) => (
+          {visible.map((song) => (
             <li key={song.id}>
               <Link href={`/musica/${song.id}`} className={songLinkClass}>
                 <span className="flex min-w-0 flex-1 flex-col justify-center">

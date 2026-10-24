@@ -11,19 +11,16 @@ export type StoredCipher = {
   enabled: boolean;
   marks: CipherMark[];
   lyricHash: string;
+  creditId?: string;
   createdAt: Date;
   updatedAt: Date;
 };
 
 type CipherDoc = StoredCipher;
 
-export async function listCipheredIds(userId: string): Promise<Set<number>> {
+export async function countCiphers(userId: string): Promise<number> {
   const db = await getDb();
-  const docs = await db
-    .collection<CipherDoc>("ciphers")
-    .find({ userId }, { projection: { _id: 0, songId: 1 } })
-    .toArray();
-  return new Set(docs.map((doc) => doc.songId));
+  return db.collection<CipherDoc>("ciphers").countDocuments({ userId });
 }
 
 export async function listCiphers(userId: string): Promise<SavedSong[]> {
@@ -45,7 +42,7 @@ export async function getCipher(userId: string, songId: number): Promise<StoredC
 export async function saveCipher(
   userId: string,
   song: { id: number; title: string; artist: string },
-  input: { enabled: boolean; marks: CipherMark[]; lyricHash: string },
+  input: { enabled: boolean; marks: CipherMark[]; lyricHash: string; creditId: string | null },
 ) {
   const db = await getDb();
   const now = new Date();
@@ -59,7 +56,9 @@ export async function saveCipher(
         marks: input.marks,
         lyricHash: input.lyricHash,
         updatedAt: now,
+        ...(input.creditId ? { creditId: input.creditId } : {}),
       },
+      ...(input.creditId ? {} : { $unset: { creditId: "" } }),
       $setOnInsert: { userId, songId: song.id, createdAt: now },
     },
     { upsert: true },
@@ -78,6 +77,25 @@ export async function setCipherEnabled(userId: string, songId: number, enabled: 
 export async function removeCipher(userId: string, songId: number) {
   const db = await getDb();
   await db.collection<CipherDoc>("ciphers").deleteOne({ userId, songId });
+}
+
+export async function removeBorrowedCipher(userId: string, songId: number) {
+  const db = await getDb();
+  const updated = await db.collection<CipherDoc>("ciphers").deleteOne({
+    userId,
+    songId,
+    creditId: { $type: "string" },
+  });
+  return updated.deletedCount > 0;
+}
+
+export async function removeBorrowedCiphers(userId: string, keptSongIds: number[]) {
+  const db = await getDb();
+  await db.collection<CipherDoc>("ciphers").deleteMany({
+    userId,
+    creditId: { $type: "string" },
+    songId: { $nin: keptSongIds },
+  });
 }
 
 export async function reassignCiphers(fromIds: string[], toId: string) {
@@ -99,10 +117,13 @@ export async function reassignCiphers(fromIds: string[], toId: string) {
           lyricHash: doc.lyricHash,
           createdAt: doc.createdAt,
           updatedAt: doc.updatedAt,
+          ...(doc.creditId ? { creditId: doc.creditId } : {}),
         },
       },
       { upsert: true },
     );
   }
   await ciphers.deleteMany({ userId: { $in: fromIds } });
+  await ciphers.updateMany({ creditId: { $in: fromIds } }, { $set: { creditId: toId } });
+  await ciphers.updateMany({ userId: toId, creditId: toId }, { $unset: { creditId: "" } });
 }

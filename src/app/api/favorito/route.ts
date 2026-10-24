@@ -1,4 +1,5 @@
 import { auth, isGoogleConfigured } from "@/auth";
+import { removeBorrowedCipher } from "@/lib/ciphers";
 import { isFavorite, removeFavorite, saveFavorite } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { ensureUser, userFromSession } from "@/lib/users";
@@ -67,9 +68,13 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureUser(user);
-    if (save) await saveFavorite(user.id, { id: songId, title, artist });
-    else await removeFavorite(user.id, songId);
-    return Response.json({ ok: true, signedIn: true, saved: save }, { headers: noStore });
+    if (save) {
+      await saveFavorite(user.id, { id: songId, title, artist });
+      return Response.json({ ok: true, signedIn: true, saved: true }, { headers: noStore });
+    }
+    await removeFavorite(user.id, songId);
+    const released = await removeBorrowedCipher(user.id, songId);
+    return Response.json({ ok: true, signedIn: true, saved: false, released }, { headers: noStore });
   } catch {
     return Response.json({ ok: false, signedIn: true, saved: false }, { headers: noStore });
   }

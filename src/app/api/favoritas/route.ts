@@ -1,10 +1,21 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { listCipheredIds } from "@/lib/ciphers";
-import { listFavorites } from "@/lib/favorites";
+import { listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
+import { listFavorites, type SavedSong } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
+import { compareFavorites } from "@/lib/text";
 import { ensureUser, userFromSession } from "@/lib/users";
 
 const noStore = { "Cache-Control": "no-store" };
+
+function mergeSongs(favorites: SavedSong[], ciphers: SavedSong[]) {
+  const byId = new Map<number, SavedSong>();
+  for (const song of favorites) byId.set(song.id, { ...song, ciphered: false });
+  for (const song of ciphers) {
+    const current = byId.get(song.id);
+    byId.set(song.id, current ? { ...current, ciphered: true } : { ...song, ciphered: true });
+  }
+  return [...byId.values()].sort(compareFavorites);
+}
 
 export async function GET() {
   if (!isGoogleConfigured() || !isMongoConfigured()) {
@@ -19,9 +30,14 @@ export async function GET() {
 
   try {
     await ensureUser(user);
-    const [songs, cipheredIds] = await Promise.all([listFavorites(user.id), listCipheredIds(user.id)]);
-    const marked = songs.map((song) => ({ ...song, ciphered: cipheredIds.has(song.id) }));
-    return Response.json({ ok: true, ready: true, signedIn: true, songs: marked }, { headers: noStore });
+    const favorites = await listFavorites(user.id);
+    await removeBorrowedCiphers(
+      user.id,
+      favorites.map((song) => song.id),
+    );
+    const ciphers = await listCiphers(user.id);
+    const songs = mergeSongs(favorites, ciphers);
+    return Response.json({ ok: true, ready: true, signedIn: true, songs }, { headers: noStore });
   } catch {
     return Response.json({ ok: false, ready: true, signedIn: true, songs: [] }, { headers: noStore });
   }

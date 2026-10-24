@@ -34,7 +34,7 @@ function FriendsFrame({ account, children }: { account: ReactNode; children: Rea
   );
 }
 
-async function FriendsConnected({ apelido }: { apelido: string | null }) {
+async function FriendsConnected() {
   await connection();
   const account = await loadAccount();
   if (!account.signedIn) redirect("/entrar");
@@ -42,7 +42,7 @@ async function FriendsConnected({ apelido }: { apelido: string | null }) {
     <FriendsFrame
       account={<AccountLinks signedIn={account.signedIn} firstName={account.firstName} nickname={account.nickname} />}
     >
-      <FriendLookup mine={account.nickname} initial={apelido} />
+      <FriendLookup mine={account.nickname} />
     </FriendsFrame>
   );
 }
@@ -66,5 +66,7 @@ export default function Page({ searchParams }: { searchParams: Promise<{ apelido
 async function FriendsFromParams({ searchParams }: { searchParams: Promise<{ apelido?: string | string[] }> }) {
   const params = await searchParams;
   const raw = Array.isArray(params.apelido) ? params.apelido[0] : params.apelido;
-  return <FriendsConnected apelido={readNickname(raw)} />;
+  const apelido = readNickname(raw);
+  if (apelido) redirect(`/amigos/${apelido}`);
+  return <FriendsConnected />;
 }

@@ -11,7 +11,6 @@ import { lyricStanzas } from "@/lib/clean-lyrics";
 import { presentArtist } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import { FastForward, Pause, Pencil, Play, Rewind } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
@@ -44,6 +43,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const [save, setSave] = useState<SaveState>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
+  const saveRequest = useRef(0);
 
   if (requestId !== id) {
     setRequestId(id);
@@ -100,6 +100,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
 
   useEffect(() => {
     if (invalidId) return;
+    const request = ++saveRequest.current;
     const controller = new AbortController();
     let cancelled = false;
     const timer = window.setTimeout(() => controller.abort(), 8000);
@@ -111,8 +112,8 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
           signedIn?: boolean;
           saved?: boolean;
         };
-        if (cancelled || !response.ok || !body.ok || !body.signedIn) {
-          setSave(null);
+        if (cancelled || request !== saveRequest.current || !response.ok || !body.ok || !body.signedIn) {
+          if (!cancelled && request === saveRequest.current) setSave(null);
           return;
         }
         setSave({ signedIn: true, saved: Boolean(body.saved) });
@@ -126,7 +127,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [id, invalidId]);
+  }, [id, from, invalidId]);
 
   const visibleLoad: LoadState = invalidId ? { status: "missing" } : load;
   const lyric = visibleLoad.status === "ready" ? visibleLoad.lyric : null;
@@ -220,6 +221,15 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     setPlaying((value) => !value);
   }
 
+  const borrowed =
+    cipher.shared && cipher.exists
+      ? cipher.creditNickname
+        ? { name: cipher.creditName, nickname: cipher.creditNickname }
+        : { name: cipher.ownerName, nickname: cipher.owner }
+      : cipher.creditNickname && cipher.enabled
+        ? { name: cipher.creditName, nickname: cipher.creditNickname }
+        : null;
+
   const scrollStatus = !armed
     ? scrollNote
     : playing
@@ -229,92 +239,114 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
-          <BackLink href={from ? `/amigos?apelido=${from}` : "/"} />
+        <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
+          <BackLink href={from ? `/amigos/${from}` : "/"} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
-            {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
-            {cipher.shared && cipher.exists ? (
-              <p className="truncate text-sm leading-snug">
-                Cifra de {cipher.ownerName ? `${cipher.ownerName} · ` : ""}
-                {cipher.owner}
-              </p>
-            ) : null}
-            {from ? (
-              <Link
-                href={`/musica/${id}`}
-                className="text-sm leading-snug text-foreground underline underline-offset-4 focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-foreground"
-              >
-                Sua versão
-              </Link>
-            ) : null}
-          </div>
-          {cipher.visible && lyric && !cipher.shared ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {cipher.editing ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={cn(compactButtonClass, "w-auto px-3")}
-                  disabled={cipher.pending}
-                  onClick={() => void cipher.finishEdit()}
-                >
-                  Pronto
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-pressed={cipher.exists ? cipher.enabled : undefined}
-                  className={cn(
-                    compactButtonClass,
-                    "w-auto px-3",
-                    cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h1 className="line-clamp-2 text-xl font-bold leading-tight">{title}</h1>
+                {artist ? <p className="truncate text-sm leading-snug">{artist}</p> : null}
+              </div>
+              {cipher.visible && lyric && !cipher.shared ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  {cipher.editing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(compactButtonClass, "w-auto px-3")}
+                      disabled={cipher.pending}
+                      onClick={() => void cipher.finishEdit()}
+                    >
+                      Pronto
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={cipher.exists ? cipher.enabled : undefined}
+                      className={cn(
+                        compactButtonClass,
+                        "w-auto px-3",
+                        cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
+                      )}
+                      disabled={cipher.pending}
+                      onClick={() => {
+                        if (!cipher.exists) {
+                          setPlaying(false);
+                          cipher.startEdit();
+                          return;
+                        }
+                        void cipher.toggle();
+                      }}
+                    >
+                      {cipher.exists ? "Cifra" : "Cifrar"}
+                    </Button>
                   )}
-                  disabled={cipher.pending}
-                  onClick={() => {
-                    if (!cipher.exists) {
-                      setPlaying(false);
-                      cipher.startEdit();
-                      return;
-                    }
-                    void cipher.toggle();
-                  }}
-                >
-                  {cipher.exists ? "Cifra" : "Cifrar"}
-                </Button>
-              )}
-              {cipher.exists && cipher.enabled && !cipher.editing ? (
+                  {cipher.exists && cipher.enabled && !cipher.editing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className={compactButtonClass}
+                      aria-label="Editar cifra"
+                      disabled={cipher.pending}
+                      onClick={() => {
+                        setPlaying(false);
+                        cipher.startEdit();
+                      }}
+                    >
+                      <Pencil className="size-6" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              {from && !cipher.self && lyric && cipher.visible ? (
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className={compactButtonClass}
-                  aria-label="Editar cifra"
+                  className={cn(compactButtonClass, "w-auto shrink-0 px-3")}
                   disabled={cipher.pending}
+                  aria-label={
+                    cipher.confirmCopy
+                      ? "Confirmar a cópia da cifra"
+                      : cipher.exists && cipher.mine
+                        ? "Substituir a sua cifra"
+                        : "Copiar esta música"
+                  }
                   onClick={() => {
                     setPlaying(false);
-                    cipher.startEdit();
+                    void cipher.copyCipher().then((kept) => {
+                      if (!kept) return;
+                      saveRequest.current += 1;
+                      setSave({ signedIn: true, saved: true });
+                    });
                   }}
                 >
-                  <Pencil className="size-6" aria-hidden="true" />
+                  {cipher.confirmCopy ? "Confirmar" : cipher.exists && cipher.mine ? "Substituir" : "Copiar"}
                 </Button>
               ) : null}
+              {(!from || cipher.self) && !invalidId && save ? (
+                <FavoriteButton
+                  key={`${id}:${save.signedIn}:${save.saved}`}
+                  songId={Number(id)}
+                  title={lyric?.title ?? ""}
+                  artist={lyric?.artist ?? ""}
+                  initialSaved={save.saved}
+                  signedIn={save.signedIn}
+                  ready={Boolean(lyric)}
+                  onReleased={cipher.releaseCipher}
+                />
+              ) : null}
             </div>
-          ) : null}
-          {!invalidId && save ? (
-            <FavoriteButton
-              key={`${id}:${save.signedIn}:${save.saved}`}
-              songId={Number(id)}
-              title={lyric?.title ?? ""}
-              artist={lyric?.artist ?? ""}
-              initialSaved={save.saved}
-              signedIn={save.signedIn}
-              ready={Boolean(lyric)}
-            />
-          ) : null}
+          </div>
         </div>
       </header>
+      {borrowed?.nickname ? (
+        <p className="shrink-0 bg-secondary px-3 py-1.5 text-center text-sm leading-snug">
+          Cifrado por {borrowed.name ? `${borrowed.name} · ` : ""}
+          <span className="font-bold text-[#1b4f8a]">{borrowed.nickname}</span>
+        </p>
+      ) : null}
 
       <div
         ref={scrollerRef}

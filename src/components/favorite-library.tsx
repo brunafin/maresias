@@ -67,7 +67,7 @@ export function HomeLibrary() {
   if (state.status === "loading") return <p className="text-2xl leading-snug">Abrindo…</p>;
   if (state.status === "error") return <SavedSongs songs={[]} unavailable />;
   if (state.status === "ready" && state.songs.length > 0) {
-    return <SavedSongs songs={[...state.songs].sort(compareFavorites).slice(0, 5)} showAll />;
+    return <SavedSongs songs={[...state.songs].sort(compareFavorites)} showAll limit={5} />;
   }
   return <RecentSongs />;
 }
@@ -85,7 +85,7 @@ export function FavoriteList() {
     return <p className="text-2xl leading-snug">Não conseguimos abrir as favoritas agora.</p>;
   }
   if (state.status === "ready") {
-    if (state.songs.length === 0) return <p className="text-2xl leading-snug">Nenhuma favorita ainda.</p>;
+    if (state.songs.length === 0) return <p className="text-2xl leading-snug">Nenhuma música ainda.</p>;
     return <FavoriteSongs songs={state.songs} />;
   }
   return <p className="text-2xl leading-snug">Abrindo as favoritas…</p>;

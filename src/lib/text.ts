@@ -9,6 +9,10 @@ export function norm(value: string): string {
     .trim();
 }
 
+export function countPhrase(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
 export function compareFavorites(a: { title: string; artist: string }, b: { title: string; artist: string }) {
   return favoriteOrder.compare(a.title, b.title) || favoriteOrder.compare(a.artist, b.artist);
 }

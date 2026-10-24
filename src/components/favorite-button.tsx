@@ -24,6 +24,7 @@ export function FavoriteButton({
   initialSaved,
   signedIn,
   ready,
+  onReleased,
 }: {
   songId: number;
   title: string;
@@ -31,6 +32,7 @@ export function FavoriteButton({
   initialSaved: boolean;
   signedIn: boolean;
   ready: boolean;
+  onReleased?: () => void;
 }) {
   const [saved, setSaved] = useState(initialSaved);
   const [note, setNote] = useState("");
@@ -49,12 +51,13 @@ export function FavoriteButton({
         cache: "no-store",
         body: JSON.stringify({ songId, title, artist, save: next }),
       });
-      const result = (await response.json()) as { ok?: boolean; saved?: boolean };
+      const result = (await response.json()) as { ok?: boolean; saved?: boolean; released?: boolean };
       if (!response.ok || !result.ok) {
         setNote(next ? "Não conseguimos guardar agora." : "Não conseguimos tirar agora.");
         return;
       }
       setSaved(Boolean(result.saved));
+      if (result.released) onReleased?.();
     } catch {
       setNote(next ? "Não conseguimos guardar agora." : "Não conseguimos tirar agora.");
     } finally {

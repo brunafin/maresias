@@ -16,6 +16,11 @@ type FavoriteDoc = {
   createdAt: Date;
 };
 
+export async function countFavorites(userId: string): Promise<number> {
+  const db = await getDb();
+  return db.collection<FavoriteDoc>("favorites").countDocuments({ userId });
+}
+
 export async function listFavorites(userId: string, limit?: number): Promise<SavedSong[]> {
   const db = await getDb();
   const found = db

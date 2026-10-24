@@ -1,6 +1,6 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { listCiphers } from "@/lib/ciphers";
-import { listFavorites } from "@/lib/favorites";
+import { countCiphers, listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
+import { countFavorites, listFavorites } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { readNickname } from "@/lib/nickname";
 import { ensureUser, findUserByNickname, userFromSession } from "@/lib/users";
@@ -39,6 +39,33 @@ export async function GET(request: NextRequest) {
         { headers: noStore },
       );
     }
+    const self = person.id === user.id;
+    if (self) {
+      const saved = await listFavorites(person.id);
+      await removeBorrowedCiphers(
+        person.id,
+        saved.map((song) => song.id),
+      );
+    }
+    const listed = request.nextUrl.searchParams.get("musicas") === "1";
+    if (!listed) {
+      const [favorites, ciphers] = await Promise.all([countFavorites(person.id), countCiphers(person.id)]);
+      return Response.json(
+        {
+          ok: true,
+          ready: true,
+          signedIn: true,
+          mine: mine.nickname,
+          found: true,
+          self,
+          nickname: person.nickname,
+          name: person.name,
+          favorites,
+          ciphers,
+        },
+        { headers: noStore },
+      );
+    }
     const [favorites, ciphers] = await Promise.all([listFavorites(person.id), listCiphers(person.id)]);
     const ciphered = new Set(ciphers.map((song) => song.id));
     return Response.json(
@@ -48,7 +75,7 @@ export async function GET(request: NextRequest) {
         signedIn: true,
         mine: mine.nickname,
         found: true,
-        self: person.id === user.id,
+        self,
         nickname: person.nickname,
         name: person.name,
         favorites: favorites.map((song) => ({ ...song, ciphered: ciphered.has(song.id) })),

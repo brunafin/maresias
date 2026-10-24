@@ -10,6 +10,7 @@ import {
   type LyricWord,
 } from "@/lib/cipher-marks";
 import { lyricStanzas } from "@/lib/clean-lyrics";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type Lyric = { title: string; artist: string; lyrics: string };
@@ -19,8 +20,12 @@ type Doc = {
   enabled: boolean;
   marks: CipherMark[];
   shared: boolean;
+  mine: boolean;
+  self: boolean;
   owner: string | null;
   ownerName: string | null;
+  creditNickname: string | null;
+  creditName: string | null;
 };
 
 type SaveResult = {
@@ -28,7 +33,16 @@ type SaveResult = {
   exists?: boolean;
   enabled?: boolean;
   marks?: CipherMark[];
+  creditNickname?: string | null;
+  creditName?: string | null;
 };
+
+function savedCredit(result: { creditNickname?: string | null; creditName?: string | null }) {
+  return {
+    creditNickname: typeof result.creditNickname === "string" ? result.creditNickname : null,
+    creditName: typeof result.creditName === "string" ? result.creditName : null,
+  };
+}
 
 function readyMarks(marks: CipherMark[]) {
   const next: CipherMark[] = [];
@@ -52,6 +66,8 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   const [chordError, setChordError] = useState("");
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
+  const [confirmCopy, setConfirmCopy] = useState(false);
+  const router = useRouter();
 
   if (seenId !== `${songId}:${owner}`) {
     setSeenId(`${songId}:${owner}`);
@@ -63,6 +79,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     setChordError("");
     setNote("");
     setPending(false);
+    setConfirmCopy(false);
   }
 
   useEffect(() => {
@@ -77,8 +94,12 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
           showCipher?: boolean;
           signedIn?: boolean;
           shared?: boolean;
+          mine?: boolean;
+          self?: boolean;
           nickname?: string;
           name?: string | null;
+          creditNickname?: string | null;
+          creditName?: string | null;
         };
         if (cancelled || !response.ok || !body.ok || !body.showCipher || !body.signedIn) return;
         const shared = Boolean(body.shared);
@@ -88,8 +109,11 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
           enabled: shared ? exists : Boolean(body.enabled),
           marks: readyMarks(Array.isArray(body.marks) ? body.marks : []),
           shared,
+          mine: Boolean(body.mine),
+          self: Boolean(body.self),
           owner: typeof body.nickname === "string" ? body.nickname : owner || null,
           ownerName: typeof body.name === "string" ? body.name : null,
+          ...savedCredit(body),
         });
       })
       .catch((error: unknown) => {
@@ -226,8 +250,11 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
         enabled: Boolean(result.enabled),
         marks: readyMarks(Array.isArray(result.marks) ? result.marks : []),
         shared: false,
+        mine: Boolean(result.exists),
+        self: false,
         owner: null,
         ownerName: null,
+        ...savedCredit(result),
       });
       setEditing(false);
       setDraft(null);
@@ -260,8 +287,12 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
         enabled: Boolean(result.enabled),
         marks: readyMarks(Array.isArray(result.marks) ? result.marks : previous.marks),
         shared: false,
+        mine: true,
+        self: false,
         owner: null,
         ownerName: null,
+        creditNickname: previous.creditNickname,
+        creditName: previous.creditName,
       });
     } catch {
       setDoc(previous);
@@ -271,11 +302,103 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     }
   }
 
+  function releaseCipher() {
+    setDoc((current) =>
+      current
+        ? {
+            ...current,
+            exists: false,
+            enabled: false,
+            marks: [],
+            mine: false,
+            creditNickname: null,
+            creditName: null,
+          }
+        : current,
+    );
+    setEditing(false);
+    setDraft(null);
+    setSelected(null);
+    setChordInput("");
+    setChordError("");
+    setConfirmCopy(false);
+  }
+
+  async function rememberSong() {
+    if (!lyric) return false;
+    const response = await fetch("/api/favorito", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        songId: Number(songId),
+        title: lyric.title,
+        artist: lyric.artist,
+        save: true,
+      }),
+    });
+    const result = (await response.json()) as { ok?: boolean };
+    return response.ok && Boolean(result.ok);
+  }
+
+  async function copyCipher() {
+    if (!lyric || !doc?.shared || doc.self || pending) return false;
+    setPending(true);
+    setNote("");
+    try {
+      const saved = await rememberSong();
+      if (!saved) {
+        setNote("Não conseguimos guardar a música agora.");
+        setPending(false);
+        return false;
+      }
+    } catch {
+      setNote("Não conseguimos guardar a música agora.");
+      setPending(false);
+      return false;
+    }
+    if (!doc.exists || !doc.owner) {
+      router.push(`/musica/${songId}`);
+      return true;
+    }
+    if (doc.mine && !confirmCopy) {
+      setConfirmCopy(true);
+      setNote("Isso substitui a sua cifra desta música. Toque de novo para copiar.");
+      setPending(false);
+      return true;
+    }
+    try {
+      const result = await send({
+        songId: Number(songId),
+        copyFrom: doc.owner,
+        title: lyric.title,
+        artist: lyric.artist,
+        lyricHash: lyricKey(lyric.lyrics),
+      });
+      if (!result) {
+        setNote("Não conseguimos copiar a cifra agora.");
+        setPending(false);
+        return true;
+      }
+      router.push(`/musica/${songId}`);
+      return true;
+    } catch {
+      setNote("Não conseguimos copiar a cifra agora.");
+      setPending(false);
+      return true;
+    }
+  }
+
   return {
     visible: Boolean(doc),
     shared: Boolean(doc?.shared),
     owner: doc?.owner ?? null,
     ownerName: doc?.ownerName ?? null,
+    creditNickname: doc?.creditNickname ?? null,
+    creditName: doc?.creditName ?? null,
+    mine: Boolean(doc?.mine),
+    self: Boolean(doc?.self),
+    confirmCopy,
     exists: Boolean(doc?.exists),
     enabled: Boolean(doc?.enabled),
     editing,
@@ -302,5 +425,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     clearChord,
     finishEdit,
     toggle,
+    copyCipher,
+    releaseCipher,
   };
 }

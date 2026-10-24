@@ -49,6 +49,17 @@ export function wordKey(word: { stanza: number; line: number; word: number }) {
   return `${word.stanza}:${word.line}:${word.word}`;
 }
 
+function markIdentity(mark: CipherMark) {
+  return `${mark.stanza}\n${mark.line}\n${mark.word}\n${mark.gap}\n${mark.wordText}\n${mark.chord}`;
+}
+
+export function sameMarks(left: CipherMark[], right: CipherMark[]) {
+  if (left.length !== right.length) return false;
+  const a = left.map(markIdentity).sort();
+  const b = right.map(markIdentity).sort();
+  return a.every((value, index) => value === b[index]);
+}
+
 export function placeLabel(text: string, gap: number): string {
   if (gap <= 0) return "no começo";
   if (gap >= text.length) return "no fim";

@@ -1,9 +1,10 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { readMarks, type CipherMark } from "@/lib/cipher-marks";
-import { getCipher, removeCipher, saveCipher, setCipherEnabled } from "@/lib/ciphers";
+import { readMarks, sameMarks, type CipherMark } from "@/lib/cipher-marks";
+import { getCipher, removeBorrowedCipher, removeCipher, saveCipher, setCipherEnabled } from "@/lib/ciphers";
+import { isFavorite } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { readNickname } from "@/lib/nickname";
-import { ensureUser, findUserByNickname, userFromSession } from "@/lib/users";
+import { ensureUser, findUserById, findUserByNickname, userFromSession } from "@/lib/users";
 import { type NextRequest } from "next/server";
 
 const noStore = { "Cache-Control": "no-store" };
@@ -19,6 +20,13 @@ const empty = {
 
 function clip(value: string, max: number) {
   return value.trim().slice(0, max);
+}
+
+async function creditOf(creditId: string | null | undefined) {
+  if (!creditId) return { creditNickname: null, creditName: null };
+  const person = await findUserById(creditId);
+  if (!person) return { creditNickname: null, creditName: null };
+  return { creditNickname: person.nickname, creditName: person.name };
 }
 
 export async function GET(request: NextRequest) {
@@ -50,17 +58,25 @@ export async function GET(request: NextRequest) {
         );
       }
       const cipher = await getCipher(person.id, id);
+      const own = person.id === user.id ? cipher : await getCipher(user.id, id);
+      const abandoned = Boolean(own?.creditId) && person.id !== user.id && !(await isFavorite(user.id, id));
+      if (abandoned) await removeBorrowedCipher(user.id, id);
+      const mine = abandoned ? false : Boolean(own);
+      const credit = await creditOf(cipher?.creditId);
       return Response.json(
         {
           ok: true,
           showCipher: true,
           signedIn: true,
           shared: true,
+          self: person.id === user.id,
+          mine,
           nickname: person.nickname,
           name: person.name,
           exists: Boolean(cipher),
           enabled: Boolean(cipher),
           marks: cipher?.marks ?? [],
+          ...credit,
         },
         { headers: noStore },
       );
@@ -74,6 +90,7 @@ export async function GET(request: NextRequest) {
     if (!cipher) {
       return Response.json({ ...empty, showCipher: true, signedIn: true }, { headers: noStore });
     }
+    const credit = await creditOf(cipher.creditId);
     return Response.json(
       {
         ok: true,
@@ -82,6 +99,7 @@ export async function GET(request: NextRequest) {
         exists: true,
         enabled: cipher.enabled,
         marks: cipher.marks,
+        ...credit,
       },
       { headers: noStore },
     );
@@ -125,6 +143,23 @@ export async function POST(request: NextRequest) {
       return Response.json({ ok: true, exists: false, enabled: false, marks: [] }, { headers: noStore });
     }
 
+    if (typeof value.copyFrom === "string") {
+      const nickname = readNickname(value.copyFrom);
+      const lyricHash = typeof value.lyricHash === "string" ? clip(value.lyricHash, 32) : "";
+      const title = typeof value.title === "string" ? clip(value.title, 200) : "";
+      const artist = typeof value.artist === "string" ? clip(value.artist, 200) : "";
+      if (!nickname || !lyricHash || !title) return Response.json({ ok: false }, { status: 400, headers: noStore });
+      const person = await findUserByNickname(nickname);
+      if (!person || person.id === user.id) return Response.json({ ok: false }, { headers: noStore });
+      const source = await getCipher(person.id, songId);
+      const marks = source ? readMarks(source.marks) : null;
+      if (!marks?.length) return Response.json({ ok: false }, { headers: noStore });
+      const originId = source?.creditId && source.creditId !== user.id ? source.creditId : person.id;
+      const creditId = originId === user.id ? null : originId;
+      await saveCipher(user.id, { id: songId, title, artist }, { enabled: true, marks, lyricHash, creditId });
+      return Response.json({ ok: true, exists: true, enabled: true, marks }, { headers: noStore });
+    }
+
     if (Array.isArray(value.marks)) {
       const marks = readMarks(value.marks);
       if (!marks || typeof value.lyricHash !== "string" || typeof value.title !== "string" || typeof value.artist !== "string") {
@@ -138,8 +173,11 @@ export async function POST(request: NextRequest) {
       const title = clip(value.title, 200);
       const artist = clip(value.artist, 200);
       if (!lyricHash || !title) return Response.json({ ok: false }, { status: 400, headers: noStore });
-      await saveCipher(user.id, { id: songId, title, artist }, { enabled: true, marks, lyricHash });
-      return Response.json({ ok: true, exists: true, enabled: true, marks }, { headers: noStore });
+      const current = await getCipher(user.id, songId);
+      const creditId = current && sameMarks(current.marks, marks) ? (current.creditId ?? null) : null;
+      await saveCipher(user.id, { id: songId, title, artist }, { enabled: true, marks, lyricHash, creditId });
+      const credit = await creditOf(creditId);
+      return Response.json({ ok: true, exists: true, enabled: true, marks, ...credit }, { headers: noStore });
     }
 
     if (typeof value.enabled === "boolean") {
