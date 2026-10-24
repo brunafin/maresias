@@ -1,7 +1,7 @@
 import { reassignCiphers } from "@/lib/ciphers";
 import { reassignFavorites } from "@/lib/favorites";
 import { getDb } from "@/lib/mongo";
-import { isNickname, nicknameStem } from "@/lib/nickname";
+import { isNickname, NICKNAME_PATTERN, nicknameStem } from "@/lib/nickname";
 import type { Session } from "next-auth";
 import type { Collection, Db } from "mongodb";
 
@@ -160,7 +160,7 @@ async function tryAssign(users: Collection<UserDoc>, id: string, nickname: strin
     const result = await users.updateOne(
       {
         _id: id,
-        nickname: { $not: { $regex: "^[a-z]{1,3}\\d{4,8}$" } },
+        nickname: { $not: { $regex: NICKNAME_PATTERN } },
       },
       { $set: { nickname } },
     );

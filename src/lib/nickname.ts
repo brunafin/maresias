@@ -1,4 +1,8 @@
-const NICKNAME = /^[a-z]{1,3}\d{4,8}$/;
+export const NICKNAME_PATTERN = "^[a-z]{4}\\d{4,8}$";
+
+const NICKNAME = new RegExp(NICKNAME_PATTERN);
+const STEM_LENGTH = 4;
+const FALLBACK = "maresias";
 
 export function isNickname(value: string): boolean {
   return NICKNAME.test(value);
@@ -9,7 +13,7 @@ export function readNickname(value: string | null | undefined): string | null {
   return isNickname(nickname) ? nickname : null;
 }
 
-// Começo do nome, em letras minúsculas e sem acento. Sem nome, fica o começo de maresias.
+// Quatro letras do começo do nome, minúsculas e sem acento. Nome curto ou ausente completa com maresias.
 export function nicknameStem(givenName: string | null, name: string | null): string {
   const source = givenName?.trim() || name?.trim().split(/\s+/)[0] || "";
   const letters = source
@@ -17,5 +21,5 @@ export function nicknameStem(givenName: string | null, name: string | null): str
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z]/g, "");
-  return letters.slice(0, 3) || "mar";
+  return (letters + FALLBACK).slice(0, STEM_LENGTH);
 }

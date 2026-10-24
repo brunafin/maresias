@@ -1,8 +1,18 @@
 import { PreferencesProvider } from "@/components/preferences";
 import { APP_VERSION } from "@/lib/version";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
 import "./globals.css";
+
+const PAPER = "#f6f1e8";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: PAPER,
+  colorScheme: "light",
+};
 
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
@@ -12,8 +22,16 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 export const metadata: Metadata = {
+  applicationName: "maresias",
   title: "maresias",
   description: "Letras grandes para cantar junto, sem anúncio.",
+  appleWebApp: {
+    capable: true,
+    title: "maresias",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

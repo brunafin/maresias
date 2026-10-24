@@ -91,7 +91,7 @@ export function FriendLookup({ mine }: { mine: string | null }) {
           id="apelido"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="mar0001"
+          placeholder="mare0001"
           autoCapitalize="none"
           autoComplete="off"
           autoCorrect="off"
@@ -107,7 +107,7 @@ export function FriendLookup({ mine }: { mine: string | null }) {
       <div aria-live="polite">
         {state.status === "loading" ? <p className="text-2xl leading-snug">Procurando…</p> : null}
         {state.status === "invalid" ? (
-          <p className="text-2xl leading-snug">O apelido é o começo do nome e um número, como mar0001.</p>
+          <p className="text-2xl leading-snug">O apelido é o começo do nome e um número, como mare0001.</p>
         ) : null}
         {state.status === "missing" ? <p className="text-2xl leading-snug">Não achamos esse apelido.</p> : null}
         {state.status === "error" ? (
