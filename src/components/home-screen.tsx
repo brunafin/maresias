@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { presentArtist, presentTitle } from "@/lib/text";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -154,8 +155,8 @@ export function HomeScreen({ account, lists }: { account: ReactNode; lists?: Rea
 function SongLink({ id, title, artist }: { id: number; title: string; artist: string }) {
   return (
     <Link href={`/musica/${id}`} className={songLinkClass}>
-      <span className="text-2xl font-bold leading-tight">{title}</span>
-      <span className="mt-1 text-xl leading-snug">{artist}</span>
+      <span className="text-2xl font-bold leading-tight">{presentTitle(title)}</span>
+      <span className="mt-1 text-xl leading-snug">{presentArtist(artist)}</span>
     </Link>
   );
 }

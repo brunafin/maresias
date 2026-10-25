@@ -1,5 +1,5 @@
 import { CipherBadge } from "@/components/cipher-badge";
-import { presentArtist } from "@/lib/text";
+import { presentArtist, presentTitle } from "@/lib/text";
 import type { SavedSong } from "@/lib/favorites";
 import Link from "next/link";
 
@@ -36,7 +36,7 @@ export function SavedSongs({
             <li key={song.id}>
               <Link href={`/musica/${song.id}`} className={songLinkClass}>
                 <span className="flex min-w-0 flex-1 flex-col justify-center">
-                  <span className="text-2xl font-bold leading-tight">{song.title}</span>
+                  <span className="text-2xl font-bold leading-tight">{presentTitle(song.title)}</span>
                   {song.artist ? <span className="mt-1 text-xl leading-snug">{presentArtist(song.artist)}</span> : null}
                 </span>
                 {song.ciphered ? <CipherBadge /> : null}

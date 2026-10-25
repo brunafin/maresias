@@ -1,5 +1,5 @@
 import { cleanLyrics, plainFromSynced } from "@/lib/clean-lyrics";
-import { norm, presentArtist } from "@/lib/text";
+import { norm, presentArtist, presentTitle } from "@/lib/text";
 
 const USER_AGENT = "LetrasDaRoda/1.0 (pagina de letras para canto em grupo)";
 const MIN_LYRICS = 40;
@@ -107,8 +107,8 @@ function toLyric(record: LrclibRecord, lyrics: string, source: LyricSource): Lyr
   return {
     id: record.id,
     artist: presentArtist(record.artistName ?? ""),
-    title: (record.trackName ?? "").trim(),
-    album: (record.albumName ?? "").trim(),
+    title: presentTitle(record.trackName ?? ""),
+    album: presentTitle(record.albumName ?? ""),
     lyrics,
     source,
   };
@@ -221,7 +221,7 @@ export async function getLyricsByArtistTitle(
   return remember(key, {
     id: null,
     artist: presentArtist(artist),
-    title: title.trim(),
+    title: presentTitle(title),
     album: "",
     lyrics: ovh,
     source: "lyrics.ovh",
@@ -237,7 +237,7 @@ export async function searchSongs(query: string): Promise<SearchHit[]> {
   for (const record of records) {
     if (textFromRecord(record).length < MIN_LYRICS) continue;
     const artist = presentArtist(record.artistName ?? "");
-    const title = (record.trackName ?? "").trim();
+    const title = presentTitle(record.trackName ?? "");
     if (!artist || !title) continue;
     const key = `${norm(artist)}|${norm(title)}`;
     if (seen.has(key)) continue;
@@ -246,7 +246,7 @@ export async function searchSongs(query: string): Promise<SearchHit[]> {
       id: record.id,
       artist,
       title,
-      album: (record.albumName ?? "").trim(),
+      album: presentTitle(record.albumName ?? ""),
     });
     if (hits.length >= 8) break;
   }

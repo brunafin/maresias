@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useCipher } from "@/components/use-cipher";
 import { rememberRecent } from "@/components/recent-songs";
 import { lyricStanzas } from "@/lib/clean-lyrics";
-import { presentArtist } from "@/lib/text";
+import { presentArtist, presentTitle } from "@/lib/text";
 import { transposeMarks, wrapSemitone } from "@/lib/transpose";
 import { cn } from "@/lib/utils";
 import { Ellipsis, FastForward, Pause, Play, Rewind } from "lucide-react";
@@ -310,7 +310,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const canEdit = Boolean(lyric) && cipher.visible && !cipher.shared && cipher.exists && cipher.enabled && !cipher.editing;
   const canShift = Boolean(lyric) && !cipher.editing && cipher.viewMarks.length > 0;
   const showOptions = canEdit || canShift;
-  const title = lyric?.title ?? "Música";
+  const title = lyric ? presentTitle(lyric.title) : "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
   editingRef.current = cipher.editing;
   chromeLockRef.current = optionsOpen;
@@ -388,7 +388,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
 
   useEffect(() => {
     if (!lyric || !/^\d+$/.test(id)) return;
-    rememberRecent({ id: Number(id), title: lyric.title, artist: lyric.artist });
+    rememberRecent({ id: Number(id), title: presentTitle(lyric.title), artist: presentArtist(lyric.artist) });
   }, [id, lyric]);
 
   useEffect(() => {
@@ -592,8 +592,8 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
                 <FavoriteButton
                   key={`${id}:${save.signedIn}:${save.saved}`}
                   songId={Number(id)}
-                  title={lyric?.title ?? ""}
-                  artist={lyric?.artist ?? ""}
+                  title={lyric ? presentTitle(lyric.title) : ""}
+                  artist={lyric ? presentArtist(lyric.artist) : ""}
                   initialSaved={save.saved}
                   signedIn={save.signedIn}
                   ready={Boolean(lyric)}

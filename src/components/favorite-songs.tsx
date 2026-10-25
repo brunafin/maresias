@@ -4,7 +4,7 @@ import { CipherBadge } from "@/components/cipher-badge";
 import { SongFilter, type SongFilterValue } from "@/components/song-filter";
 import { Input } from "@/components/ui/input";
 import type { SavedSong } from "@/lib/favorites";
-import { compareFavorites, matchesFavorite, presentArtist } from "@/lib/text";
+import { compareFavorites, matchesFavorite, presentArtist, presentTitle } from "@/lib/text";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
@@ -54,7 +54,7 @@ export function FavoriteSongs({ songs }: { songs: SavedSong[] }) {
             <li key={song.id}>
               <Link href={`/musica/${song.id}`} className={songLinkClass}>
                 <span className="flex min-w-0 flex-1 flex-col justify-center">
-                  <span className="text-2xl font-bold leading-tight">{song.title}</span>
+                  <span className="text-2xl font-bold leading-tight">{presentTitle(song.title)}</span>
                   {song.artist ? <span className="mt-1 text-xl leading-snug">{presentArtist(song.artist)}</span> : null}
                 </span>
                 {song.ciphered ? <CipherBadge /> : null}

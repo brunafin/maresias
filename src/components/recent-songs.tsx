@@ -1,6 +1,6 @@
 "use client";
 
-import { presentArtist } from "@/lib/text";
+import { presentArtist, presentTitle } from "@/lib/text";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 
@@ -87,7 +87,7 @@ export function RecentSongs() {
         {songs.map((song) => (
           <li key={song.id}>
             <Link href={`/musica/${song.id}`} className={songLinkClass}>
-              <span className="text-2xl font-bold leading-tight">{song.title}</span>
+              <span className="text-2xl font-bold leading-tight">{presentTitle(song.title)}</span>
               {song.artist ? <span className="mt-1 text-xl leading-snug">{presentArtist(song.artist)}</span> : null}
             </Link>
           </li>

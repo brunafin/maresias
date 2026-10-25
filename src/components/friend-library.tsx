@@ -3,7 +3,7 @@
 import { CipherBadge } from "@/components/cipher-badge";
 import { BackLink } from "@/components/controls";
 import { SongFilter, type SongFilterValue } from "@/components/song-filter";
-import { compareFavorites, countPhrase, presentArtist } from "@/lib/text";
+import { compareFavorites, countPhrase, presentArtist, presentTitle } from "@/lib/text";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -99,7 +99,7 @@ export function FriendLibrary({ nickname }: { nickname: string }) {
             <li key={song.id}>
               <Link href={hrefFor(song.id)} className={songLinkClass}>
                 <span className="flex min-w-0 flex-1 flex-col justify-center">
-                  <span className="text-2xl font-bold leading-tight">{song.title}</span>
+                  <span className="text-2xl font-bold leading-tight">{presentTitle(song.title)}</span>
                   {song.artist ? <span className="mt-1 text-xl leading-snug">{presentArtist(song.artist)}</span> : null}
                 </span>
                 {song.ciphered ? <CipherBadge /> : null}
