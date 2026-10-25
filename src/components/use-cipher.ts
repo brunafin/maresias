@@ -6,6 +6,7 @@ import {
   normalizeChord,
   placeMarks,
   wordKey,
+  type ChordSpot,
   type CipherMark,
   type LyricWord,
 } from "@/lib/cipher-marks";
@@ -53,6 +54,37 @@ function readyMarks(marks: CipherMark[]) {
   return next;
 }
 
+function newId() {
+  return crypto.randomUUID();
+}
+
+function stamp(marks: CipherMark[]) {
+  return marks.map((mark) => (mark.id ? mark : { ...mark, id: newId() }));
+}
+
+function storedMark(mark: CipherMark): CipherMark {
+  return {
+    stanza: mark.stanza,
+    line: mark.line,
+    word: mark.word,
+    gap: mark.gap,
+    wordText: mark.wordText,
+    chord: mark.chord,
+  };
+}
+
+function toSpot(mark: Pick<CipherMark, "stanza" | "line" | "word" | "gap" | "wordText">): ChordSpot {
+  return {
+    stanza: mark.stanza,
+    line: mark.line,
+    word: mark.word,
+    gap: mark.gap,
+    wordText: mark.wordText,
+  };
+}
+
+export type ChordFit = (chord: string, place: ChordSpot, selfId: string | null) => ChordSpot | null;
+
 export function useCipher(songId: string, lyric: Lyric | null, from?: string | null) {
   const invalid = !/^\d+$/.test(songId);
   const owner = from?.trim().toLowerCase() || "";
@@ -60,7 +92,8 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   const [doc, setDoc] = useState<Doc | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CipherMark[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [spot, setSpot] = useState<ChordSpot | null>(null);
   const [focusTick, setFocusTick] = useState(0);
   const [chordInput, setChordInput] = useState("");
   const [chordError, setChordError] = useState("");
@@ -74,7 +107,8 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     setDoc(null);
     setEditing(false);
     setDraft(null);
-    setSelected(null);
+    setSelectedId(null);
+    setSpot(null);
     setChordInput("");
     setChordError("");
     setNote("");
@@ -135,19 +169,16 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   const showChords = editing || Boolean(doc?.enabled);
   const viewMarks = showChords ? placement.placed : [];
 
-  const selectedWord = useMemo(() => {
-    if (!selected) return null;
-    for (const stanza of lyricLines(stanzas)) {
-      for (const line of stanza) {
-        for (const word of line) {
-          if (wordKey(word) === selected) return word;
-        }
-      }
-    }
-    return null;
-  }, [selected, stanzas]);
+  const selectedMark = selectedId ? (viewMarks.find((mark) => mark.id === selectedId) ?? null) : null;
+  const anchor = selectedMark ? toSpot(selectedMark) : spot;
 
-  const selectedMark = selected ? (viewMarks.find((mark) => wordKey(mark) === selected) ?? null) : null;
+  const selectedWord = useMemo(() => {
+    const place = selectedMark ?? spot;
+    if (!place) return null;
+    return lyricLines(stanzas)[place.stanza]?.[place.line]?.[place.word] ?? null;
+  }, [selectedMark, spot, stanzas]);
+
+  const selected = selectedWord ? wordKey(selectedWord) : null;
 
   async function send(body: Record<string, unknown>) {
     const response = await fetch("/api/cifra", {
@@ -164,64 +195,126 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   function startEdit() {
     if (!lyric || !doc || doc.shared) return;
     const next = placeMarks(stanzas, doc.marks);
-    setDraft([...next.placed, ...next.loose]);
+    setDraft(stamp([...next.placed, ...next.loose]));
     setEditing(true);
-    setSelected(null);
+    setSelectedId(null);
+    setSpot(null);
     setChordInput("");
     setChordError("");
     setNote("");
   }
 
+  function marksOn(word: LyricWord) {
+    return (draft ?? []).filter((mark) => wordKey(mark) === wordKey(word)).sort((left, right) => left.gap - right.gap);
+  }
+
   function selectWord(word: LyricWord, focus: boolean) {
-    const key = wordKey(word);
-    if (key !== selected) {
-      const mark = (draft ?? doc?.marks ?? []).find((item) => wordKey(item) === key);
-      setSelected(key);
-      setChordInput(mark?.chord ?? "");
+    const marks = marksOn(word);
+    const current = marks.find((mark) => mark.id === selectedId);
+    if (!current) {
+      const mark = marks[0];
+      if (mark?.id) {
+        setSpot(null);
+        setSelectedId(mark.id);
+        setChordInput(mark.chord);
+      } else {
+        setSelectedId(null);
+        setSpot({ stanza: word.stanza, line: word.line, word: word.word, gap: 0, wordText: word.text });
+        setChordInput("");
+      }
       setChordError("");
       setNote("");
     }
     if (focus) setFocusTick((value) => value + 1);
   }
 
-  function setGap(key: string, gap: number) {
-    setDraft((current) => {
-      if (!current) return current;
-      return current.map((mark) => (wordKey(mark) === key ? { ...mark, gap } : mark));
-    });
+  function selectMark(id: string, focus: boolean) {
+    const mark = (draft ?? []).find((item) => item.id === id);
+    if (!mark) return;
+    setSpot(null);
+    setSelectedId(id);
+    setChordInput(mark.chord);
+    setChordError("");
+    setNote("");
+    if (focus) setFocusTick((value) => value + 1);
   }
 
-  function saveChord(raw?: string) {
-    if (!selectedWord) return;
+  function moveMark(id: string, place: ChordSpot) {
+    setDraft((current) => {
+      if (!current) return current;
+      return current.map((mark) => (mark.id === id ? { ...mark, ...place } : mark));
+    });
+    setSpot(null);
+    setSelectedId(id);
+  }
+
+  function beginAt(place: ChordSpot | null) {
+    if (!place) {
+      setChordError("");
+      setNote("Não cabe outro acorde nesta linha.");
+      return;
+    }
+    setSelectedId(null);
+    setSpot(place);
+    setChordInput("");
+    setChordError("");
+    setNote("");
+    setFocusTick((value) => value + 1);
+  }
+
+  function saveChord(raw?: string, fit?: ChordFit) {
     const chord = normalizeChord(typeof raw === "string" ? raw : chordInput);
     if (!chord) {
       setNote("");
       setChordError("Use o acorde assim: C, Cm, G7, F#.");
       return;
     }
-    const key = wordKey(selectedWord);
-    setDraft((current) => {
-      const list = current ?? [];
-      const previous = list.find((mark) => wordKey(mark) === key);
-      const next = list.filter((mark) => wordKey(mark) !== key);
-      next.push({
-        stanza: selectedWord.stanza,
-        line: selectedWord.line,
-        word: selectedWord.word,
-        gap: previous?.gap ?? 0,
-        wordText: selectedWord.text,
-        chord,
-      });
-      return next;
-    });
+    if (selectedId) {
+      const previous = (draft ?? []).find((mark) => mark.id === selectedId);
+      if (!previous) return;
+      const fitted = fit?.(chord, toSpot(previous), selectedId) ?? toSpot(previous);
+      const taken = (draft ?? []).some(
+        (mark) =>
+          mark.id !== selectedId &&
+          mark.stanza === fitted.stanza &&
+          mark.line === fitted.line &&
+          mark.word === fitted.word &&
+          mark.gap === fitted.gap,
+      );
+      const place = taken ? toSpot(previous) : fitted;
+      setDraft((current) => (current ?? []).map((mark) => (mark.id === selectedId ? { ...mark, ...place, chord } : mark)));
+      setChordInput(chord);
+      setChordError("");
+      setNote("Salvo.");
+      return;
+    }
+    if (!spot) return;
+    const place = fit?.(chord, spot, null);
+    if (!place) {
+      setChordError("");
+      setNote("Não cabe outro acorde nesta linha.");
+      return;
+    }
+    if ((draft ?? []).some((mark) => mark.stanza === place.stanza && mark.line === place.line && mark.word === place.word && mark.gap === place.gap)) {
+      setChordError("");
+      setNote("Não cabe outro acorde nesta linha.");
+      return;
+    }
+    const id = newId();
+    setDraft((current) => [...(current ?? []), { ...place, chord, id }]);
+    setSelectedId(id);
+    setSpot(null);
     setChordInput(chord);
     setChordError("");
     setNote("Salvo.");
   }
 
   function clearChord() {
-    if (!selected) return;
-    setDraft((current) => (current ?? []).filter((mark) => wordKey(mark) !== selected));
+    const mark = (draft ?? []).find((item) => item.id === selectedId);
+    if (!mark) return;
+    setDraft((current) => (current ?? []).filter((item) => item.id !== selectedId));
+    setSelectedId(null);
+    setSpot(toSpot(mark));
     setChordInput("");
     setChordError("");
     setNote("Apagado.");
@@ -230,7 +323,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   async function finishEdit() {
     if (!lyric || pending) return;
     const next = placeMarks(stanzas, draft ?? []);
-    const marks = [...next.placed, ...next.loose];
+    const marks = [...next.placed, ...next.loose].map(storedMark);
     setPending(true);
     setNote("");
     try {
@@ -258,7 +351,8 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
       });
       setEditing(false);
       setDraft(null);
-      setSelected(null);
+      setSelectedId(null);
+      setSpot(null);
       setChordInput("");
       setChordError("");
     } catch {
@@ -318,7 +412,8 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     );
     setEditing(false);
     setDraft(null);
-    setSelected(null);
+    setSelectedId(null);
+    setSpot(null);
     setChordInput("");
     setChordError("");
     setConfirmCopy(false);
@@ -407,8 +502,11 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     viewMarks,
     drifted: showChords && placement.drifted,
     selected,
+    selectedId,
     selectedWord,
     selectedMark,
+    spot,
+    anchor,
     focusTick,
     chordInput,
     setChordInput: (value: string) => {
@@ -420,7 +518,9 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     note,
     startEdit,
     selectWord,
-    setGap,
+    selectMark,
+    moveMark,
+    beginAt,
     saveChord,
     clearChord,
     finishEdit,

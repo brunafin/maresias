@@ -1,6 +1,6 @@
 "use client";
 
-import { CipherBar, CipherLyrics } from "@/components/cipher-lyrics";
+import { CipherBar, CipherLyrics, type CipherLyricsHandle } from "@/components/cipher-lyrics";
 import { BackLink, bigButtonClass, compactButtonClass } from "@/components/controls";
 import { FavoriteButton } from "@/components/favorite-button";
 import { DEFAULT_LYRIC_SIZE, LYRIC_SIZES, usePrefs } from "@/components/preferences";
@@ -175,6 +175,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const [toneNote, setToneNote] = useState("");
   const [optionsOpen, setOptionsOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const lyricsRef = useRef<CipherLyricsHandle>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
   const saveRequest = useRef(0);
 
@@ -549,13 +550,17 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
           ) : null}
           {lyric && (cipher.editing || cipher.viewMarks.length > 0) ? (
             <CipherLyrics
+              ref={lyricsRef}
               stanzas={cipher.stanzas}
               marks={shownMarks}
               editing={cipher.editing}
               selected={cipher.selected}
+              selectedId={cipher.selectedId}
+              spot={cipher.spot}
               drifted={cipher.drifted}
               onSelect={cipher.selectWord}
-              onGap={cipher.setGap}
+              onSelectMark={cipher.selectMark}
+              onMove={cipher.moveMark}
             />
           ) : lyric ? (
             <div className="letra flex flex-col" style={{ fontSize: "var(--lyric-size)", lineHeight: 1.6, gap: "0.85em" }}>
@@ -580,16 +585,32 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
           {cipher.editing ? (
             <CipherBar
               word={cipher.selectedWord?.text ?? null}
-              gap={cipher.selectedMark?.gap ?? 0}
+              gap={cipher.spot?.gap ?? cipher.selectedMark?.gap ?? 0}
               value={cipher.chordInput}
               error={cipher.chordError}
               note={cipher.note}
               pending={cipher.pending}
               canClear={Boolean(cipher.selectedMark)}
+              canAdd={
+                Boolean(cipher.selectedWord) &&
+                cipher.viewMarks.some(
+                  (mark) => mark.stanza === cipher.selectedWord?.stanza && mark.line === cipher.selectedWord?.line,
+                )
+              }
               focusTick={cipher.focusTick}
               onChange={cipher.setChordInput}
-              onSave={cipher.saveChord}
+              onSave={(chord) =>
+                cipher.saveChord(chord, (name, place, selfId) => {
+                  const fitted = lyricsRef.current?.fitPlace(name, place, selfId);
+                  if (fitted) return fitted;
+                  return selfId ? place : null;
+                })
+              }
               onClear={cipher.clearChord}
+              onAdd={() => {
+                if (!cipher.anchor) return;
+                cipher.beginAt(lyricsRef.current?.nextPlace(cipher.anchor) ?? null);
+              }}
             />
           ) : (
             <>
