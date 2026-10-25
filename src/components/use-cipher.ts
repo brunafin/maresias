@@ -11,6 +11,7 @@ import {
   type LyricWord,
 } from "@/lib/cipher-marks";
 import { lyricStanzas } from "@/lib/clean-lyrics";
+import { transposeMarks, wrapSemitone } from "@/lib/transpose";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -364,6 +365,45 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     }
   }
 
+  async function saveTransposed(semitones: number) {
+    if (!lyric || !doc || doc.shared || !doc.exists || editing || pending) return false;
+    const steps = wrapSemitone(semitones);
+    if (steps === 0) return false;
+    const marks = transposeMarks(doc.marks, steps).map(storedMark);
+    setPending(true);
+    setNote("");
+    try {
+      const result = await send({
+        songId: Number(songId),
+        title: lyric.title,
+        artist: lyric.artist,
+        lyricHash: lyricKey(lyric.lyrics),
+        marks,
+      });
+      if (!result) {
+        setNote("Não conseguimos guardar a cifra agora.");
+        return false;
+      }
+      setDoc({
+        exists: Boolean(result.exists),
+        enabled: Boolean(result.enabled),
+        marks: readyMarks(Array.isArray(result.marks) ? result.marks : []),
+        shared: false,
+        mine: Boolean(result.exists),
+        self: false,
+        owner: null,
+        ownerName: null,
+        ...savedCredit(result),
+      });
+      return Boolean(result.exists);
+    } catch {
+      setNote("Não conseguimos guardar a cifra agora.");
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function toggle() {
     if (!doc?.exists || doc.shared || editing || pending) return;
     const enabled = !doc.enabled;
@@ -526,6 +566,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
     saveChord,
     clearChord,
     finishEdit,
+    saveTransposed,
     toggle,
     copyCipher,
     releaseCipher,

@@ -24,6 +24,14 @@ function tonePhrase(steps: number) {
   return steps > 0 ? `${amount} acima.` : `${amount} abaixo.`;
 }
 
+const toneMenuButtonClass =
+  "h-auto min-h-16 w-full touch-manipulation rounded-xl border-2 border-foreground bg-background px-4 py-3 text-xl font-bold leading-tight text-foreground shadow-none focus-visible:ring-4";
+
+const toneSaveButtonClass =
+  "h-auto min-h-16 w-full touch-manipulation rounded-xl border-2 border-foreground bg-foreground px-4 py-3 text-xl font-bold leading-tight text-background shadow-none hover:bg-foreground hover:text-background focus-visible:ring-4";
+
+const toneStepClass = cn(compactButtonClass, "size-16 min-h-16 min-w-16 text-3xl");
+
 function toneLabel(steps: number) {
   if (steps > 0) return `+${steps}`;
   if (steps < 0) return `−${Math.abs(steps)}`;
@@ -36,16 +44,20 @@ function CipherOptions({
   canEdit,
   canShift,
   semitones,
+  pending,
   onEdit,
   onTone,
+  onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canEdit: boolean;
   canShift: boolean;
   semitones: number;
+  pending: boolean;
   onEdit: () => void;
   onTone: (direction: -1 | 1) => void;
+  onSave: () => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -99,44 +111,58 @@ function CipherOptions({
       {open ? (
         <div
           id={panelId}
-          className="absolute top-full right-0 z-40 mt-2 flex w-max flex-col gap-2 rounded-2xl border-[3px] border-foreground bg-background p-2"
+          className="absolute top-full right-0 z-40 mt-2 flex w-max min-w-64 flex-col gap-3 rounded-2xl border-[3px] border-foreground bg-background p-3"
         >
           {canEdit ? (
             <Button
               type="button"
               variant="outline"
-              className={cn(compactButtonClass, "w-full px-3")}
+              className={toneMenuButtonClass}
               onClick={onEdit}
             >
               Editar cifra
             </Button>
           ) : null}
           {canShift ? (
-            <div role="group" aria-label="Tom da cifra" className="flex items-center justify-center gap-2">
-              <span className="px-1 text-sm font-bold">Tom</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className={compactButtonClass}
-                aria-label="Descer meio tom"
-                onClick={() => onTone(-1)}
-              >
-                −
-              </Button>
-              <span className="w-8 text-center text-sm font-bold tabular-nums" aria-hidden="true">
-                {toneLabel(semitones)}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className={compactButtonClass}
-                aria-label="Subir meio tom"
-                onClick={() => onTone(1)}
-              >
-                +
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div role="group" aria-label="Tom da cifra" className="flex items-center justify-center gap-2">
+                <span className="px-1 text-xl font-bold">Tom</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={toneStepClass}
+                  aria-label="Descer meio tom"
+                  disabled={pending}
+                  onClick={() => onTone(-1)}
+                >
+                  −
+                </Button>
+                <span className="min-w-12 text-center text-xl font-bold tabular-nums" aria-hidden="true">
+                  {toneLabel(semitones)}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={toneStepClass}
+                  aria-label="Subir meio tom"
+                  disabled={pending}
+                  onClick={() => onTone(1)}
+                >
+                  +
+                </Button>
+              </div>
+              {canEdit && semitones !== 0 ? (
+                <Button
+                  type="button"
+                  className={toneSaveButtonClass}
+                  disabled={pending}
+                  onClick={onSave}
+                >
+                  Salvar cifra
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -518,12 +544,21 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
                       canEdit={canEdit}
                       canShift={canShift}
                       semitones={semitones}
+                      pending={cipher.pending}
                       onEdit={() => {
                         setOptionsOpen(false);
                         setPlaying(false);
                         cipher.startEdit();
                       }}
                       onTone={changeTone}
+                      onSave={() => {
+                        void cipher.saveTransposed(semitones).then((kept) => {
+                          if (!kept) return;
+                          setSemitones(0);
+                          setToneNote("Cifra salva neste tom.");
+                          setOptionsOpen(false);
+                        });
+                      }}
                     />
                   ) : null}
                 </div>
