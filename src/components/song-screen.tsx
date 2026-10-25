@@ -182,6 +182,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const dragRef = useRef({ x: 0, y: 0, moved: false });
   const saveRequest = useRef(0);
   const headerHiddenRef = useRef(false);
+  const editingRef = useRef(false);
   const chromeLockRef = useRef(false);
 
   if (requestId !== id) {
@@ -285,13 +286,19 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const showOptions = canEdit || canShift;
   const title = lyric?.title ?? "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
-  chromeLockRef.current = cipher.editing || optionsOpen;
+  editingRef.current = cipher.editing;
+  chromeLockRef.current = optionsOpen;
 
   useEffect(() => {
-    if (!cipher.editing && !optionsOpen) return;
+    if (!optionsOpen) return;
     headerHiddenRef.current = false;
     setHeaderHidden(false);
-  }, [cipher.editing, optionsOpen]);
+  }, [optionsOpen]);
+
+  useEffect(() => {
+    headerHiddenRef.current = cipher.editing;
+    setHeaderHidden(cipher.editing);
+  }, [cipher.editing]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -306,6 +313,11 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     };
 
     const onScroll = () => {
+      if (editingRef.current) {
+        last = el.scrollTop;
+        acc = 0;
+        return;
+      }
       const y = el.scrollTop;
       const delta = y - last;
       last = y;
@@ -474,41 +486,29 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
               </div>
               {cipher.visible && lyric && (!cipher.shared || showOptions) ? (
                 <div className="flex shrink-0 items-center gap-2">
-                  {!cipher.shared ? (
-                    cipher.editing ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(compactButtonClass, "w-auto px-3")}
-                        disabled={cipher.pending}
-                        onClick={() => void cipher.finishEdit()}
-                      >
-                        Pronto
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        aria-pressed={cipher.exists ? cipher.enabled : undefined}
-                        className={cn(
-                          compactButtonClass,
-                          "w-auto px-3",
-                          cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
-                        )}
-                        disabled={cipher.pending}
-                        onClick={() => {
-                          setOptionsOpen(false);
-                          if (!cipher.exists) {
-                            setPlaying(false);
-                            cipher.startEdit();
-                            return;
-                          }
-                          void cipher.toggle();
-                        }}
-                      >
-                        {cipher.exists ? "Cifra" : "Cifrar"}
-                      </Button>
-                    )
+                  {!cipher.shared && !cipher.editing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={cipher.exists ? cipher.enabled : undefined}
+                      className={cn(
+                        compactButtonClass,
+                        "w-auto px-3",
+                        cipher.exists && cipher.enabled && "bg-foreground text-background hover:bg-foreground hover:text-background",
+                      )}
+                      disabled={cipher.pending}
+                      onClick={() => {
+                        setOptionsOpen(false);
+                        if (!cipher.exists) {
+                          setPlaying(false);
+                          cipher.startEdit();
+                          return;
+                        }
+                        void cipher.toggle();
+                      }}
+                    >
+                      {cipher.exists ? "Cifra" : "Cifrar"}
+                    </Button>
                   ) : null}
                   {showOptions ? (
                     <CipherOptions
@@ -579,8 +579,11 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
       <div
         ref={scrollerRef}
         data-lyrics
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-10"
-        style={{ paddingTop: chromeHeight + 16 }}
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto px-5 sm:px-10",
+          cipher.editing ? "pt-[max(1rem,env(safe-area-inset-top))] pb-4" : "py-4",
+        )}
+        style={cipher.editing ? undefined : { paddingTop: chromeHeight + 16 }}
         onPointerDown={(event) => {
           dragRef.current = { x: event.clientX, y: event.clientY, moved: false };
         }}
@@ -656,35 +659,46 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
             {toneNote ? <p>{toneNote}</p> : null}
           </div>
           {cipher.editing ? (
-            <CipherBar
-              word={cipher.selectedWord?.text ?? null}
-              gap={cipher.spot?.gap ?? cipher.selectedMark?.gap ?? 0}
-              value={cipher.chordInput}
-              error={cipher.chordError}
-              note={cipher.note}
-              pending={cipher.pending}
-              canClear={Boolean(cipher.selectedMark)}
-              canAdd={
-                Boolean(cipher.selectedWord) &&
-                cipher.viewMarks.some(
-                  (mark) => mark.stanza === cipher.selectedWord?.stanza && mark.line === cipher.selectedWord?.line,
-                )
-              }
-              focusTick={cipher.focusTick}
-              onChange={cipher.setChordInput}
-              onSave={(chord) =>
-                cipher.saveChord(chord, (name, place, selfId) => {
-                  const fitted = lyricsRef.current?.fitPlace(name, place, selfId);
-                  if (fitted) return fitted;
-                  return selfId ? place : null;
-                })
-              }
-              onClear={cipher.clearChord}
-              onAdd={() => {
-                if (!cipher.anchor) return;
-                cipher.beginAt(lyricsRef.current?.nextPlace(cipher.anchor) ?? null);
-              }}
-            />
+            <>
+              <CipherBar
+                word={cipher.selectedWord?.text ?? null}
+                gap={cipher.spot?.gap ?? cipher.selectedMark?.gap ?? 0}
+                value={cipher.chordInput}
+                error={cipher.chordError}
+                note={cipher.note}
+                pending={cipher.pending}
+                canClear={Boolean(cipher.selectedMark)}
+                canAdd={
+                  Boolean(cipher.selectedWord) &&
+                  cipher.viewMarks.some(
+                    (mark) => mark.stanza === cipher.selectedWord?.stanza && mark.line === cipher.selectedWord?.line,
+                  )
+                }
+                focusTick={cipher.focusTick}
+                onChange={cipher.setChordInput}
+                onSave={(chord) =>
+                  cipher.saveChord(chord, (name, place, selfId) => {
+                    const fitted = lyricsRef.current?.fitPlace(name, place, selfId);
+                    if (fitted) return fitted;
+                    return selfId ? place : null;
+                  })
+                }
+                onClear={cipher.clearChord}
+                onAdd={() => {
+                  if (!cipher.anchor) return;
+                  cipher.beginAt(lyricsRef.current?.nextPlace(cipher.anchor) ?? null);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full touch-manipulation rounded-xl border-2 border-foreground bg-foreground text-lg font-bold text-background shadow-none hover:bg-foreground hover:text-background focus-visible:ring-4"
+                disabled={cipher.pending}
+                onClick={() => void cipher.finishEdit()}
+              >
+                Pronto
+              </Button>
+            </>
           ) : (
             <>
           {cipher.note ? (

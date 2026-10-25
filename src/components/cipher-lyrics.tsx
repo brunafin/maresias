@@ -20,12 +20,23 @@ import {
   type CipherMark,
   type LyricWord,
 } from "@/lib/cipher-marks";
-import { chordBoard } from "@/lib/chord-catalog";
+import { chordFamily, chordVariants, NATURAL_CHORDS } from "@/lib/chord-catalog";
 import { cn } from "@/lib/utils";
 import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 
 const chordLook =
   "absolute left-0 top-0 z-10 min-w-6 text-left text-[0.74em] font-bold leading-none whitespace-nowrap text-[#1b4f8a] normal-case select-none";
+
+function ChordTouch({ name }: { name: string }) {
+  const hit = (
+    <span
+      aria-hidden="true"
+      className="absolute -top-3 left-1/2 -bottom-7 min-w-12 -translate-x-1/2 touch-none"
+      style={{ width: "max(3rem, calc(100% + 1rem))" }}
+    />
+  );
+  return <span data-chord-label className="relative inline-block">{name}{hit}</span>;
+}
 
 const highlightClass = "bg-[#ffe14a] text-inherit box-decoration-clone";
 
@@ -220,7 +231,7 @@ function ChordWord({
   return (
     <span data-cipher-word={key} data-cipher-text={word.text} className="inline-flex flex-col">
       {open ? (
-        <span data-slot className="relative block h-[0.96em]">
+        <span data-slot className={cn("relative block h-[0.96em]", editing && "z-10")}>
           {editing && word.word === 0 ? (
             <span
               className={cn(
@@ -276,7 +287,7 @@ function ChordWord({
                 }}
                 onClick={(event) => event.stopPropagation()}
               >
-                <span data-chord-label>{mark.chord}</span>
+                <ChordTouch name={mark.chord} />
               </span>
             ) : (
               <button
@@ -685,12 +696,8 @@ export function CipherLyrics({
 const barButtonClass =
   "h-12 w-auto min-w-12 touch-manipulation rounded-xl border-2 border-foreground bg-background px-3 text-lg font-bold text-foreground shadow-none focus-visible:ring-4";
 
-function scrollChildIntoView(root: HTMLElement, child: HTMLElement) {
-  const rootRect = root.getBoundingClientRect();
-  const rect = child.getBoundingClientRect();
-  if (rect.top < rootRect.top) root.scrollTop -= rootRect.top - rect.top;
-  else if (rect.bottom > rootRect.bottom) root.scrollTop += rect.bottom - rootRect.bottom;
-}
+const chordKeyClass =
+  "flex h-12 min-w-0 flex-1 items-center justify-center rounded-lg border-2 border-foreground px-0.5 font-bold leading-none normal-case focus-visible:ring-4 focus-visible:ring-foreground focus-visible:outline-none disabled:opacity-50";
 
 export function CipherBar({
   word,
@@ -723,6 +730,8 @@ export function CipherBar({
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const current = normalizeChord(value);
+  const [openRoot, setOpenRoot] = useState<string | null>(null);
+  const variants = openRoot ? chordVariants(openRoot) : [];
 
   useEffect(() => {
     if (!word || focusTick === 0) return;
@@ -730,11 +739,26 @@ export function CipherBar({
   }, [focusTick, word]);
 
   useEffect(() => {
-    const root = listRef.current;
-    if (!root) return;
-    const active = root.querySelector<HTMLElement>("[aria-pressed='true']");
-    if (active) scrollChildIntoView(root, active);
-  }, [word, current]);
+    if (!current) {
+      setOpenRoot(null);
+      return;
+    }
+    const family = chordFamily(current);
+    if (!family) {
+      setOpenRoot(null);
+      return;
+    }
+    if (current !== family) {
+      setOpenRoot(family);
+      return;
+    }
+    setOpenRoot((open) => (open === family ? open : null));
+  }, [current]);
+
+  function choose(chord: string, root: string) {
+    onSave(chord);
+    setOpenRoot(root);
+  }
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -753,56 +777,72 @@ export function CipherBar({
             ref={listRef}
             tabIndex={-1}
             role="group"
-            aria-label="Acordes principais"
-            className="max-h-[min(22rem,42vh)] w-full overflow-y-auto overscroll-contain outline-none"
+            aria-label="Acordes maiores"
+            className="flex w-full gap-1 outline-none"
           >
-            <div className="flex flex-col gap-1">
-              {chordBoard().map((row, index) => (
-                <div
-                  key={row.id}
-                  role="group"
-                  aria-label={row.label}
-                  className={cn("grid grid-cols-7 gap-1", index === 3 && "mt-2")}
-                >
-                  {row.cells.map((cell, cellIndex) =>
-                    cell ? (
-                      <button
-                        key={cell.chord}
-                        type="button"
-                        aria-pressed={cell.chord === current}
-                        aria-label={`${cell.chord}, ${cell.label}`}
-                        disabled={pending}
-                        className={cn(
-                          "flex h-12 items-center justify-center rounded-lg border-2 border-foreground px-0.5 font-bold leading-none normal-case focus-visible:ring-4 focus-visible:ring-foreground focus-visible:outline-none disabled:opacity-50",
-                          cell.chord.length >= 3 ? "text-sm sm:text-base" : "text-lg",
-                          cell.chord === current ? "bg-foreground text-background" : "bg-card text-foreground",
-                        )}
-                        onClick={() => onSave(cell.chord)}
-                      >
-                        {cell.chord}
-                      </button>
-                    ) : (
-                      <span key={`${row.id}-${cellIndex}`} aria-hidden="true" />
-                    ),
+            {NATURAL_CHORDS.map((note) => {
+              const selected = note === current;
+              const expanded = openRoot === note;
+              return (
+                <button
+                  key={note}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-expanded={expanded}
+                  aria-controls={expanded ? "cifra-variantes" : undefined}
+                  aria-label={`${note}, maior`}
+                  disabled={pending}
+                  className={cn(
+                    chordKeyClass,
+                    "text-lg",
+                    selected
+                      ? "bg-foreground text-background"
+                      : expanded
+                        ? "bg-secondary text-foreground"
+                        : "bg-card text-foreground",
                   )}
-                </div>
+                  onClick={() => choose(note, note)}
+                >
+                  {note}
+                </button>
+              );
+            })}
+          </div>
+          {openRoot && variants.length > 0 ? (
+            <div id="cifra-variantes" role="group" aria-label={`Variantes de ${openRoot}`} className="flex w-full gap-1">
+              {variants.map((cell) => (
+                <button
+                  key={cell.chord}
+                  type="button"
+                  aria-pressed={cell.chord === current}
+                  aria-label={`${cell.chord}, ${cell.label}`}
+                  disabled={pending}
+                  className={cn(
+                    chordKeyClass,
+                    cell.chord.length >= 3 ? "text-sm" : "text-lg",
+                    cell.chord === current ? "bg-foreground text-background" : "bg-card text-foreground",
+                  )}
+                  onClick={() => choose(cell.chord, openRoot)}
+                >
+                  {cell.chord}
+                </button>
               ))}
             </div>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex min-w-0 flex-1 basis-32 flex-col gap-1 text-sm font-bold" htmlFor="cifra-acorde">
-              Outro acorde
+          ) : null}
+          <div className="flex w-full items-center gap-2">
+            <label className="block w-1/3 shrink-0" htmlFor="cifra-acorde">
+              <span className="sr-only">Outro acorde</span>
               <Input
                 id="cifra-acorde"
                 value={value}
-                placeholder="ex.: Bb"
+                placeholder="Outro"
                 autoCapitalize="off"
                 autoComplete="off"
                 spellCheck={false}
                 enterKeyHint="done"
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "cifra-erro" : undefined}
-                className="h-12 rounded-xl border-2 border-foreground bg-card px-3 text-lg font-bold normal-case placeholder:text-base placeholder:font-normal"
+                className="h-12 rounded-xl border-2 border-foreground bg-card px-3 text-lg font-bold text-[#1b4f8a] normal-case placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground"
                 onChange={(event) => onChange(event.target.value)}
                 onBlur={() => {
                   if (value.trim()) onSave();
@@ -816,13 +856,19 @@ export function CipherBar({
               />
             </label>
             {canAdd ? (
-              <Button type="button" variant="outline" className={barButtonClass} disabled={pending} onClick={onAdd}>
+              <Button type="button" variant="outline" className={cn(barButtonClass, "min-w-0 flex-1 px-2 text-base")} disabled={pending} onClick={onAdd}>
                 Mais um acorde
               </Button>
             ) : null}
-            <Button type="button" variant="outline" className={cn(barButtonClass, "gap-2")} disabled={pending || !canClear} onClick={onClear}>
-              <Trash2 className="size-5" strokeWidth={2.25} aria-hidden="true" />
-              Apagar
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(barButtonClass, "ml-auto shrink-0 border-destructive px-0 text-destructive hover:bg-destructive/10 hover:text-destructive")}
+              aria-label="Apagar o acorde"
+              disabled={pending || !canClear}
+              onClick={onClear}
+            >
+              <Trash2 className="size-6" strokeWidth={2.25} aria-hidden="true" />
             </Button>
           </div>
         </>
