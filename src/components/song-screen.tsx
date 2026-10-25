@@ -694,7 +694,13 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
                 variant="outline"
                 className="h-12 w-full touch-manipulation rounded-xl border-2 border-foreground bg-foreground text-lg font-bold text-background shadow-none hover:bg-foreground hover:text-background focus-visible:ring-4"
                 disabled={cipher.pending}
-                onClick={() => void cipher.finishEdit()}
+                onClick={() => {
+                  void cipher.finishEdit().then((kept) => {
+                    if (!kept) return;
+                    saveRequest.current += 1;
+                    setSave({ signedIn: true, saved: true });
+                  });
+                }}
               >
                 Pronto
               </Button>

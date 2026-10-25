@@ -1,5 +1,5 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { countCiphers, listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
+import { countCiphers, ensureOwnCipherFavorites, listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
 import { countFavorites, listFavorites } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { readNickname } from "@/lib/nickname";
@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       );
     }
     const self = person.id === user.id;
+    await ensureOwnCipherFavorites(person.id);
     if (self) {
       const saved = await listFavorites(person.id);
       await removeBorrowedCiphers(

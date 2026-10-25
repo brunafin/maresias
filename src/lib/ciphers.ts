@@ -1,5 +1,5 @@
 import { type CipherMark } from "@/lib/cipher-marks";
-import type { SavedSong } from "@/lib/favorites";
+import { saveFavorite, type SavedSong } from "@/lib/favorites";
 import { getDb } from "@/lib/mongo";
 import { compareFavorites } from "@/lib/text";
 
@@ -32,6 +32,17 @@ export async function listCiphers(userId: string): Promise<SavedSong[]> {
     .sort({ title: 1, artist: 1 })
     .toArray();
   return docs.map((doc) => ({ id: doc.songId, title: doc.title, artist: doc.artist })).sort(compareFavorites);
+}
+
+export async function ensureOwnCipherFavorites(userId: string) {
+  const db = await getDb();
+  const docs = await db
+    .collection<CipherDoc>("ciphers")
+    .find({ userId, creditId: { $exists: false } }, { projection: { songId: 1, title: 1, artist: 1 } })
+    .toArray();
+  for (const doc of docs) {
+    await saveFavorite(userId, { id: doc.songId, title: doc.title, artist: doc.artist });
+  }
 }
 
 export async function getCipher(userId: string, songId: number): Promise<StoredCipher | null> {

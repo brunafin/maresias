@@ -57,6 +57,10 @@ export function FavoriteButton({
         return;
       }
       setSaved(Boolean(result.saved));
+      if (!next && result.saved) {
+        setNote("Uma música cifrada continua guardada.");
+        return;
+      }
       if (result.released) onReleased?.();
     } catch {
       setNote(next ? "Não conseguimos guardar agora." : "Não conseguimos tirar agora.");

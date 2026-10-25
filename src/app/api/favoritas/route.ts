@@ -1,5 +1,5 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
+import { ensureOwnCipherFavorites, listCiphers, removeBorrowedCiphers } from "@/lib/ciphers";
 import { listFavorites, type SavedSong } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { compareFavorites } from "@/lib/text";
@@ -30,6 +30,7 @@ export async function GET() {
 
   try {
     await ensureUser(user);
+    await ensureOwnCipherFavorites(user.id);
     const favorites = await listFavorites(user.id);
     await removeBorrowedCiphers(
       user.id,

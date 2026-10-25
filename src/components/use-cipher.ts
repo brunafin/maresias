@@ -321,7 +321,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
   }
 
   async function finishEdit() {
-    if (!lyric || pending) return;
+    if (!lyric || pending) return false;
     const next = placeMarks(stanzas, draft ?? []);
     const marks = [...next.placed, ...next.loose].map(storedMark);
     setPending(true);
@@ -336,7 +336,7 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
       });
       if (!result) {
         setNote("Não conseguimos guardar a cifra agora.");
-        return;
+        return false;
       }
       setDoc({
         exists: Boolean(result.exists),
@@ -355,8 +355,10 @@ export function useCipher(songId: string, lyric: Lyric | null, from?: string | n
       setSpot(null);
       setChordInput("");
       setChordError("");
+      return Boolean(result.exists);
     } catch {
       setNote("Não conseguimos guardar a cifra agora.");
+      return false;
     } finally {
       setPending(false);
     }

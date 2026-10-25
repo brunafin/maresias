@@ -1,11 +1,18 @@
 import { auth, isGoogleConfigured } from "@/auth";
-import { removeBorrowedCipher } from "@/lib/ciphers";
+import { getCipher, removeBorrowedCipher } from "@/lib/ciphers";
 import { isFavorite, removeFavorite, saveFavorite } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { ensureUser, userFromSession } from "@/lib/users";
 import { type NextRequest } from "next/server";
 
 const noStore = { "Cache-Control": "no-store" };
+
+async function keepOwnCipher(userId: string, songId: number) {
+  const cipher = await getCipher(userId, songId);
+  if (!cipher || cipher.creditId) return false;
+  await saveFavorite(userId, { id: songId, title: cipher.title, artist: cipher.artist });
+  return true;
+}
 
 export async function GET(request: NextRequest) {
   const id = Number(request.nextUrl.searchParams.get("id"));
@@ -20,7 +27,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const saved = await isFavorite(user.id, id);
+    let saved = await isFavorite(user.id, id);
+    if (!saved) saved = await keepOwnCipher(user.id, id);
     return Response.json({ ok: true, showSave: true, signedIn: true, saved }, { headers: noStore });
   } catch {
     return Response.json({ ok: true, showSave: true, signedIn: true, saved: false }, { headers: noStore });
@@ -74,7 +82,8 @@ export async function POST(request: NextRequest) {
     }
     await removeFavorite(user.id, songId);
     const released = await removeBorrowedCipher(user.id, songId);
-    return Response.json({ ok: true, signedIn: true, saved: false, released }, { headers: noStore });
+    const kept = await keepOwnCipher(user.id, songId);
+    return Response.json({ ok: true, signedIn: true, saved: kept, released: released && !kept }, { headers: noStore });
   } catch {
     return Response.json({ ok: false, signedIn: true, saved: false }, { headers: noStore });
   }

@@ -1,7 +1,7 @@
 import { auth, isGoogleConfigured } from "@/auth";
 import { readMarks, sameMarks, type CipherMark } from "@/lib/cipher-marks";
 import { getCipher, removeBorrowedCipher, removeCipher, saveCipher, setCipherEnabled } from "@/lib/ciphers";
-import { isFavorite } from "@/lib/favorites";
+import { isFavorite, saveFavorite } from "@/lib/favorites";
 import { isMongoConfigured } from "@/lib/mongo";
 import { readNickname } from "@/lib/nickname";
 import { ensureUser, findUserById, findUserByNickname, userFromSession } from "@/lib/users";
@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
       const originId = source?.creditId && source.creditId !== user.id ? source.creditId : person.id;
       const creditId = originId === user.id ? null : originId;
       await saveCipher(user.id, { id: songId, title, artist }, { enabled: true, marks, lyricHash, creditId });
+      await saveFavorite(user.id, { id: songId, title, artist });
       return Response.json({ ok: true, exists: true, enabled: true, marks }, { headers: noStore });
     }
 
@@ -176,6 +177,7 @@ export async function POST(request: NextRequest) {
       const current = await getCipher(user.id, songId);
       const creditId = current && sameMarks(current.marks, marks) ? (current.creditId ?? null) : null;
       await saveCipher(user.id, { id: songId, title, artist }, { enabled: true, marks, lyricHash, creditId });
+      await saveFavorite(user.id, { id: songId, title, artist });
       const credit = await creditOf(creditId);
       return Response.json({ ok: true, exists: true, enabled: true, marks, ...credit }, { headers: noStore });
     }
