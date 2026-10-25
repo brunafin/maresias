@@ -12,7 +12,7 @@ import { presentArtist } from "@/lib/text";
 import { transposeMarks, wrapSemitone } from "@/lib/transpose";
 import { cn } from "@/lib/utils";
 import { Ellipsis, FastForward, Pause, Play, Rewind } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const SPEEDS = [14, 24, 36, 52, 72];
 
@@ -174,10 +174,15 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const [semitones, setSemitones] = useState(0);
   const [toneNote, setToneNote] = useState("");
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const [chromeHeight, setChromeHeight] = useState(0);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const chromeRef = useRef<HTMLDivElement>(null);
   const lyricsRef = useRef<CipherLyricsHandle>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
   const saveRequest = useRef(0);
+  const headerHiddenRef = useRef(false);
+  const chromeLockRef = useRef(false);
 
   if (requestId !== id) {
     setRequestId(id);
@@ -191,6 +196,8 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     setSemitones(0);
     setToneNote("");
     setOptionsOpen(false);
+    headerHiddenRef.current = false;
+    setHeaderHidden(false);
   }
 
   const invalidId = !/^\d+$/.test(id);
@@ -278,6 +285,60 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const showOptions = canEdit || canShift;
   const title = lyric?.title ?? "Música";
   const artist = lyric ? presentArtist(lyric.artist) : "";
+  chromeLockRef.current = cipher.editing || optionsOpen;
+
+  useEffect(() => {
+    if (!cipher.editing && !optionsOpen) return;
+    headerHiddenRef.current = false;
+    setHeaderHidden(false);
+  }, [cipher.editing, optionsOpen]);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let last = el.scrollTop;
+    let acc = 0;
+
+    const apply = (hidden: boolean) => {
+      if (headerHiddenRef.current === hidden) return;
+      headerHiddenRef.current = hidden;
+      setHeaderHidden(hidden);
+    };
+
+    const onScroll = () => {
+      const y = el.scrollTop;
+      const delta = y - last;
+      last = y;
+      if (chromeLockRef.current || y <= 4) {
+        acc = 0;
+        apply(false);
+        return;
+      }
+      if (delta === 0) return;
+      if ((delta > 0 && acc < 0) || (delta < 0 && acc > 0)) acc = 0;
+      acc += delta;
+      if (acc > 40) {
+        acc = 0;
+        apply(true);
+      } else if (acc < -8) {
+        acc = 0;
+        apply(false);
+      }
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [id]);
+
+  useLayoutEffect(() => {
+    const el = chromeRef.current;
+    if (!el) return;
+    const update = () => setChromeHeight(el.offsetHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!title || title === "Música") return;
@@ -297,7 +358,8 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
     const scroller = scrollerRef.current;
     const word = scroller?.querySelector<HTMLElement>(`[data-cipher-word="${cipher.selected}"]`);
     if (!scroller || !word) return;
-    const delta = word.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16;
+    const cover = chromeLockRef.current ? (chromeRef.current?.offsetHeight ?? 0) : 0;
+    const delta = word.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16 - cover;
     scroller.scrollTo({ top: scroller.scrollTop + delta });
   }, [cipher.editing, cipher.selected, cipher.focusTick]);
 
@@ -391,8 +453,17 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
       : "Rolagem pausada. Toque na letra para continuar.";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="relative z-20 shrink-0 border-b border-foreground/30 px-3 py-2 sm:px-6">
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div
+        ref={chromeRef}
+        className={cn(
+          "absolute inset-x-0 top-0 z-20 transition-transform duration-300 ease-out motion-reduce:transition-none",
+          headerHidden && "pointer-events-none",
+        )}
+        style={{ transform: headerHidden ? "translateY(-100%)" : "translateY(0)" }}
+        inert={headerHidden}
+      >
+      <header className="border-b border-foreground/30 bg-background px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
           <BackLink href={from ? `/amigos/${from}` : "/"} />
           <div className="min-w-0 flex-1">
@@ -498,16 +569,18 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
         </div>
       </header>
       {borrowed?.nickname ? (
-        <p className="shrink-0 bg-secondary px-3 py-1.5 text-center text-sm leading-snug">
+        <p className="bg-secondary px-3 py-1.5 text-center text-sm leading-snug">
           Cifrado por {borrowed.name ? `${borrowed.name} · ` : ""}
           <span className="font-bold text-[#1b4f8a]">{borrowed.nickname}</span>
         </p>
       ) : null}
+      </div>
 
       <div
         ref={scrollerRef}
         data-lyrics
         className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-10"
+        style={{ paddingTop: chromeHeight + 16 }}
         onPointerDown={(event) => {
           dragRef.current = { x: event.clientX, y: event.clientY, moved: false };
         }}
