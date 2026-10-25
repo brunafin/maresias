@@ -54,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         <PreferencesProvider>{children}</PreferencesProvider>
-        <p className="pointer-events-none fixed right-2 bottom-0 z-30 pb-[max(0.15rem,env(safe-area-inset-bottom))] text-[10px] leading-none text-foreground/25 select-none">
+        <p aria-hidden="true" className="pointer-events-none fixed right-2 bottom-0 z-30 bg-background px-1 pb-[max(0.15rem,env(safe-area-inset-bottom))] text-[10px] leading-none text-quiet select-none">
           {APP_VERSION}
         </p>
       </body>

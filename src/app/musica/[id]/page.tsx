@@ -4,9 +4,9 @@ import { Suspense } from "react";
 
 function SongPending() {
   return (
-    <div className="flex h-full items-center px-5">
+    <main className="flex h-full items-center px-5">
       <p className="text-3xl leading-snug">Buscando a letra…</p>
-    </div>
+    </main>
   );
 }
 

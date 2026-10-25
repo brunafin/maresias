@@ -176,7 +176,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [chromeHeight, setChromeHeight] = useState(0);
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLElement>(null);
   const chromeRef = useRef<HTMLDivElement>(null);
   const lyricsRef = useRef<CipherLyricsHandle>(null);
   const dragRef = useRef({ x: 0, y: 0, moved: false });
@@ -475,7 +475,8 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
         style={{ transform: headerHidden ? "translateY(-100%)" : "translateY(0)" }}
         inert={headerHidden}
       >
-      <header className="border-b border-foreground/30 bg-background px-3 py-2 sm:px-6">
+      <header className="bg-background">
+        <div className="border-b border-foreground/30 px-3 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
           <BackLink href={from ? `/amigos/${from}` : "/"} />
           <div className="min-w-0 flex-1">
@@ -567,17 +568,19 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
             </div>
           </div>
         </div>
-      </header>
+        </div>
       {borrowed?.nickname ? (
         <p className="bg-secondary px-3 py-1.5 text-center text-sm leading-snug">
           Cifrado por {borrowed.name ? `${borrowed.name} · ` : ""}
           <span className="font-bold text-[#1b4f8a]">{borrowed.nickname}</span>
         </p>
       ) : null}
+      </header>
       </div>
 
-      <div
+      <main
         ref={scrollerRef}
+        aria-label="Letra"
         data-lyrics
         className={cn(
           "min-h-0 flex-1 overflow-y-auto px-5 sm:px-10",
@@ -649,7 +652,7 @@ export function SongScreen({ id, from = null }: { id: string; from?: string | nu
             </div>
           ) : null}
         </div>
-      </div>
+      </main>
 
       <footer className="shrink-0 border-t border-foreground/30 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2">

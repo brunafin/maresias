@@ -31,6 +31,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+  --color-quiet: var(--quiet);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -64,6 +65,7 @@
   --accent: #efe6d6;
   --accent-foreground: #1c1612;
   --destructive: #8f1d1d;
+  --quiet: color-mix(in srgb, var(--foreground) 65%, var(--background));
   --border: #1c1612;
   --input: #1c1612;
   --ring: #1c1612;
@@ -95,6 +97,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button,
+  [role="button"],
+  input:is([type="button"], [type="submit"], [type="reset"]) {
+    cursor: pointer;
   }
 }
 
