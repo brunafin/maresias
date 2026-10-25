@@ -28,6 +28,8 @@ export function chordVariants(root: string): ChordCell[] {
   const cells: ChordCell[] = [
     { chord: chordSymbol(root, true, ""), label: "menor" },
     { chord: chordSymbol(root, false, "7"), label: "com sétima" },
+    { chord: chordSymbol(root, true, "7"), label: "menor com sétima" },
+    { chord: chordSymbol(root, false, "9"), label: "com nona" },
   ];
   const sharp = SHARP_OF[root];
   if (!sharp) return cells;

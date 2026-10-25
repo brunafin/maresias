@@ -809,7 +809,7 @@ export function CipherBar({
             })}
           </div>
           {openRoot && variants.length > 0 ? (
-            <div id="cifra-variantes" role="group" aria-label={`Variantes de ${openRoot}`} className="flex w-full gap-1">
+            <div id="cifra-variantes" role="group" aria-label={`Variantes de ${openRoot}`} className="flex w-full flex-wrap gap-1">
               {variants.map((cell) => (
                 <button
                   key={cell.chord}
@@ -819,6 +819,7 @@ export function CipherBar({
                   disabled={pending}
                   className={cn(
                     chordKeyClass,
+                    "min-w-12",
                     cell.chord.length >= 3 ? "text-sm" : "text-lg",
                     cell.chord === current ? "bg-foreground text-background" : "bg-card text-foreground",
                   )}

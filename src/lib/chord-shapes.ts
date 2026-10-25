@@ -33,15 +33,18 @@ const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
 const OPEN: Record<string, ChordFrets> = {
   C: [-1, 3, 2, 0, 1, 0],
   C7: [-1, 3, 2, 3, 1, 0],
+  C9: [-1, 3, 2, 3, 3, 3],
   D: [-1, -1, 0, 2, 3, 2],
   Dm: [-1, -1, 0, 2, 3, 1],
   D7: [-1, -1, 0, 2, 1, 2],
+  Dm7: [-1, -1, 0, 2, 1, 1],
   G: [3, 2, 0, 0, 0, 3],
   G7: [3, 2, 0, 0, 0, 1],
+  G9: [3, 2, 0, 2, 0, 1],
   B7: [-1, 2, 1, 2, 0, 2],
 };
 
-type Quality = "" | "m" | "7";
+type Quality = "" | "m" | "7" | "m7" | "9";
 
 function rootFrets(openPitch: number, rootPitch: number) {
   const base = (rootPitch - openPitch + 12) % 12;
@@ -52,9 +55,13 @@ function eShape(fret: number, quality: Quality): ChordPosition {
   const frets: ChordFrets =
     quality === "m"
       ? [fret, fret + 2, fret + 2, fret, fret, fret]
-      : quality === "7"
-        ? [fret, fret + 2, fret, fret + 1, fret, fret]
-        : [fret, fret + 2, fret + 2, fret + 1, fret, fret];
+      : quality === "m7"
+        ? [fret, fret + 2, fret, fret, fret, fret]
+        : quality === "7"
+          ? [fret, fret + 2, fret, fret + 1, fret, fret]
+          : quality === "9"
+            ? [fret, fret + 2, fret, fret + 1, fret, fret + 2]
+            : [fret, fret + 2, fret + 2, fret + 1, fret, fret];
   return { frets, barre: fret > 0 ? { fret, from: 0, to: 5 } : null };
 }
 
@@ -62,10 +69,15 @@ function aShape(fret: number, quality: Quality): ChordPosition {
   const frets: ChordFrets =
     quality === "m"
       ? [-1, fret, fret + 2, fret + 2, fret + 1, fret]
-      : quality === "7"
-        ? [-1, fret, fret + 2, fret, fret + 2, fret]
-        : [-1, fret, fret + 2, fret + 2, fret + 2, fret];
-  return { frets, barre: fret > 0 ? { fret, from: 1, to: 5 } : null };
+      : quality === "m7"
+        ? [-1, fret, fret + 2, fret, fret + 1, fret]
+        : quality === "7"
+          ? [-1, fret, fret + 2, fret, fret + 2, fret]
+          : quality === "9"
+            ? [-1, fret, fret + 2, fret + 4, fret + 2, fret + 3]
+            : [-1, fret, fret + 2, fret + 2, fret + 2, fret];
+  const barre = quality === "9" || fret === 0 ? null : { fret, from: 1, to: 5 };
+  return { frets, barre };
 }
 
 function rank(position: ChordPosition) {
@@ -85,7 +97,7 @@ function sameFrets(left: ChordFrets, right: ChordFrets) {
 }
 
 export function chordPositions(symbol: string): ChordPosition[] {
-  const match = /^([A-G])(#|b)?(m|7)?$/.exec(symbol);
+  const match = /^([A-G])(#|b)?(m7|m|7|9)?$/.exec(symbol);
   if (!match) return [];
   let root = match[1] + (match[2] ?? "");
   if (match[2] === "b") {
